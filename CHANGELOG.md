@@ -7,6 +7,14 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 ## [Unreleased]
 
 ### Added
+- **Persistent project memory (Phase 10).** `hooks/memory-surface.sh`
+  (SessionStart) injects a capped digest of `.pilot/memory.md` so durable
+  decisions/conventions/gotchas survive across sessions and compaction;
+  `/pilot-remember <note>` appends to it. Silent when absent.
+- **Parallel orchestration (Phase 10).** New registry phase **0.8 Orchestrate
+  (parallel)** + `playbooks/orchestration.md`: decompose → dispatch one subagent
+  per independent unit (`superpowers:dispatching-parallel-agents`) → join, with
+  worktree isolation for parallel mutations. The process model an OS needs.
 - **Executable production floor (Phase 9).** `dev/floor-check.sh` runs the
   applicable floor gates and exits non-zero on any failure — tests, `shellcheck`
   (when present), and a secret scan (`gitleaks` when present, else a conservative

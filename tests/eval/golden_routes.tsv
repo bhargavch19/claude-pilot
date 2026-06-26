@@ -17,6 +17,7 @@ use frontend-design for the landing page	frontend-design:frontend-design
 let's improve-codebase-architecture here	improve-codebase-architecture
 run gsd-debug on this failure	gsd-debug
 do the gsd-plan-phase step	gsd-plan-phase
+use superpowers:dispatching-parallel-agents on these files	superpowers:dispatching-parallel-agents
 paul:init the project	paul:init
 run paul:plan then review	paul:plan
 do paul:apply now	paul:apply
@@ -29,6 +30,7 @@ ship it to production	NONE
 run the tests	NONE
 help me plan the work	NONE
 clean up this function	NONE
+fan out these tasks in parallel	NONE
 # --- novel / unusual phrasings the advisor must defer to the model (no hard-route) ---
 make this thing less janky	NONE
 the gizmo is acting weird again	NONE
