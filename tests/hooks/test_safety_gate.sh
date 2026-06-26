@@ -29,6 +29,10 @@ rm -rf $HOME
 rm -rf ${HOME}
 sudo rm -rf /*
 rm -fr ~/*
+rm -rf ~/projects
+rm -rf ~/Documents
+rm -rf $HOME/projects
+rm -rf ${HOME}/Desktop
 rm -rf /usr
 rm -rf /etc/
 rm -rf .
@@ -44,6 +48,8 @@ done <<'EOF'
 rm -rf ./build
 rm -rf node_modules
 rm -rf ~/project/dist
+rm -rf ~/app/node_modules
+rm -rf $HOME/repos/myapp/build
 rm file.txt
 rm -r src/old
 rm -rf /var/folders/xx/T/tmp

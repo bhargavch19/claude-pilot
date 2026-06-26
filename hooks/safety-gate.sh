@@ -77,8 +77,9 @@ if printf '%s' "$CMD" | grep -Eq "${CB}rm[[:space:]]"; then
   if printf '%s' "$C" | grep -Eq '(^|[[:space:]])-([a-zA-Z]*[rR])|--recursive' \
      && printf '%s' "$C" | grep -Eq '(^|[[:space:]])-([a-zA-Z]*f)|--force'; then
     danger=0
-    # root, bare home, home wildcard
-    printf '%s' "$C" | grep -Eq '[[:space:]](/|/\*|~|~/|~/\*|\$HOME|\$\{HOME\}|\$HOME/\*|\$\{HOME\}/\*)([[:space:]]|$)' && danger=1
+    # root, bare home, home wildcard, and a top-level home child (~/projects,
+    # ~/Documents — precious) — but NOT a deeper path (~/app/dist, a build dir).
+    printf '%s' "$C" | grep -Eq '[[:space:]](/|/\*|~|~/|~/\*|~/[^/[:space:]]+|\$HOME|\$\{HOME\}|\$HOME/\*|\$\{HOME\}/\*|\$HOME/[^/[:space:]]+|\$\{HOME\}/[^/[:space:]]+)([[:space:]]|$)' && danger=1
     # absolute system directories (bare, trailing slash, or /*)
     printf '%s' "$C" | grep -Eq '[[:space:]]/(usr|etc|var|bin|sbin|lib|lib64|opt|boot|dev|sys|proc|root|home|System|Library|Applications|private|Users)(/\*|/?)([[:space:]]|$)' && danger=1
     # bare current / parent directory

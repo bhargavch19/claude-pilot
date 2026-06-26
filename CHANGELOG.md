@@ -46,7 +46,9 @@ Pilot hooks: 7 → 12.
   slower" caveat front and center.
 - **`safety-gate.sh` (G15)** — a fail-closed `PreToolUse: Bash` hook that
   **blocks (exit 2)** destructive commands with catastrophic blast radius:
-  `rm` recursive-force on `$HOME`/root/system paths, destructive git (force
+  `rm` recursive-force on `$HOME`/root/system paths and top-level home dirs
+  (`~/projects`, `~/Documents`) — while still allowing nested build dirs
+  (`~/app/dist`) — destructive git (force
   push, `reset --hard`, `clean -f`, `branch -D`, `checkout/restore .` — folding
   in the `git-guardrails-claude-code` posture), and secret reads/copies/exfil
   (`.env`, private keys, cloud credentials). Safe, targeted variants pass
