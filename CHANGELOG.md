@@ -7,6 +7,14 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 ## [Unreleased]
 
 ### Added
+- **Routing eval / measurement harness.** `dev/eval-routes.sh` scores the
+  deterministic route-advisor against a golden set
+  (`tests/eval/golden_routes.tsv`) — binary 0/1 per case, criteria-based (not
+  LLM-judged), expecting 100% since the advisor is deterministic. A suite gate
+  (`tests/dev/test_eval_routes.sh`) fails the build on any routing regression.
+  `docs/measuring-pilot.md` documents the eval plus a manual A/B protocol
+  (pilot on vs off) for end-to-end lift, with the METR "feel faster / be
+  slower" caveat front and center.
 - **`safety-gate.sh` (G15)** — a fail-closed `PreToolUse: Bash` hook that
   **blocks (exit 2)** destructive commands with catastrophic blast radius:
   `rm` recursive-force on `$HOME`/root/system paths, destructive git (force
