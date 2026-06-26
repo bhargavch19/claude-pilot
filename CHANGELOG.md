@@ -4,7 +4,12 @@ All notable changes to the `pilot` plugin are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [Semantic Versioning](https://semver.org/) once 1.0 ships.
 
-## [Unreleased]
+## [0.9.0] — 2026-06-26
+
+Agentic-OS release. Adds the OS primitives on top of the 0.8 hardening: a
+feedback loop (outcome ledger → router nudge), an executable production floor
+(blocking CI gate), persistent project memory across sessions, and a parallel
+orchestration phase. Pilot hooks: 12 → 13.
 
 ### Added
 - **Persistent project memory (Phase 10).** `hooks/memory-surface.sh`
