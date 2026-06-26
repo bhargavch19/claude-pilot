@@ -25,7 +25,7 @@ jq --arg pd "$PLUGIN_DIR" '
 
   if .hooks == null then . else
     .hooks |=
-      ( (.PreToolUse   // [] | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh") | drop_pilot("safety-gate.sh")) as $p
+      ( (.PreToolUse   // [] | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh") | drop_pilot("safety-gate.sh") | drop_pilot("pretooluse-heartbeat.sh")) as $p
       | (.PostToolUse  // [] | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh") | drop_pilot("autoformat.sh")) as $po
       | (.Stop         // [] | drop_pilot("verify-gate.sh"))                             as $s
       | (.SubagentStop // [] | drop_pilot("verify-gate.sh"))                             as $sa

@@ -7,6 +7,13 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 ## [Unreleased]
 
 ### Added
+- **`pretooluse-heartbeat.sh`** — a `PreToolUse` (all-tools) hook that records
+  each PreToolUse fire so `/pilot-doctor` can prove the chain is live. PreToolUse
+  hooks can fail silently (Claude Code issue #31250); doctor's own Bash command
+  triggers the heartbeat, so a fresh mark confirms PreToolUse works and a
+  missing/stale one flags a dead chain. New `/pilot-doctor` liveness section +
+  tests. The golden routing set also gains novel-phrasing `NONE` cases asserting
+  the advisor defers fuzzy intent to the model rather than mis-hard-routing.
 - **`integrity-check.sh`** — a `SessionStart` hook that warns when the opened
   project ships its own Claude Code hooks in `.claude/settings.json` /
   `settings.local.json` (the SessionStart-hook RCE vector — a real PyPI-worm

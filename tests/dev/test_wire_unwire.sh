@@ -36,6 +36,10 @@ if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | map(endswith("/hooks/saf
   echo "FAIL: safety-gate.sh not wired"
   exit 1
 fi
+if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | map(endswith("/hooks/pretooluse-heartbeat.sh")) | any' "$TMP/.claude/settings.json" >/dev/null; then
+  echo "FAIL: pretooluse-heartbeat.sh not wired"
+  exit 1
+fi
 if ! jq -e '.hooks.PreToolUse | map(select(.matcher == "Bash" and (.hooks[].command | endswith("/hooks/safety-gate.sh")))) | length > 0' "$TMP/.claude/settings.json" >/dev/null; then
   echo "FAIL: safety-gate matcher not set to Bash"
   exit 1
@@ -89,7 +93,7 @@ if ! jq -e '.hooks.PostToolUse | map(select(.matcher == "Skill")) | length > 0' 
   exit 1
 fi
 # matcher should include MultiEdit and NotebookEdit
-if ! jq -e '.hooks.PreToolUse | map(select(.matcher | contains("MultiEdit") and contains("NotebookEdit"))) | length > 0' "$TMP/.claude/settings.json" >/dev/null; then
+if ! jq -e '.hooks.PreToolUse | map(select((.matcher // "") | contains("MultiEdit") and contains("NotebookEdit"))) | length > 0' "$TMP/.claude/settings.json" >/dev/null; then
   echo "FAIL: plan-gate matcher missing MultiEdit/NotebookEdit"
   exit 1
 fi
@@ -97,7 +101,7 @@ if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | index("/some/other/hook.
   echo "FAIL: non-pilot hook lost during wire"
   exit 1
 fi
-echo "PASS: wire installs 11 pilot hooks (incl. safety-gate, capture-test-run, autoformat, integrity-check, route-advisor) and preserves foreign hook"
+echo "PASS: wire installs 12 pilot hooks (incl. pretooluse-heartbeat, safety-gate, capture-test-run, autoformat, integrity-check, route-advisor) and preserves foreign hook"
 
 # Wire again — must be idempotent (still exactly one of each).
 HOME="$TMP" bash "$ROOT/dev/wire-hooks.sh" >/dev/null
@@ -134,6 +138,10 @@ if jq -e '..|.command? | strings | endswith("/hooks/autoformat.sh")' "$TMP/.clau
 fi
 if jq -e '..|.command? | strings | endswith("/hooks/integrity-check.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
   echo "FAIL: integrity-check.sh remained after unwire"
+  exit 1
+fi
+if jq -e '..|.command? | strings | endswith("/hooks/pretooluse-heartbeat.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
+  echo "FAIL: pretooluse-heartbeat.sh remained after unwire"
   exit 1
 fi
 if jq -e '..|.command? | strings | endswith("/hooks/route-advisor.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then

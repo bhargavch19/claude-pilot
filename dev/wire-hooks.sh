@@ -33,8 +33,9 @@ jq --arg pd "$PLUGIN_DIR" '
   def is_pilot($name): .command? // "" | endswith("/hooks/" + $name);
   def drop_pilot($name): map(select(([.hooks[]? | is_pilot($name)] | any) | not));
   .hooks = (.hooks // {}) |
-  .hooks.PreToolUse = ((.hooks.PreToolUse // []) | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh") | drop_pilot("safety-gate.sh"))
+  .hooks.PreToolUse = ((.hooks.PreToolUse // []) | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh") | drop_pilot("safety-gate.sh") | drop_pilot("pretooluse-heartbeat.sh"))
     + [
+        {"hooks":[{"type":"command","command":($pd + "/hooks/pretooluse-heartbeat.sh")}]},
         {"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":($pd + "/hooks/plan-gate.sh")}]},
         {"matcher":"Bash","hooks":[
           {"type":"command","command":($pd + "/hooks/safety-gate.sh")},
