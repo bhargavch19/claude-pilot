@@ -36,6 +36,7 @@ into `~/.claude/settings.json` using absolute paths.
 | —  | Auto-format edited files (hygiene, not a guard) | `hooks/autoformat.sh` | `PostToolUse: Edit\|Write\|MultiEdit` | Format the edited file with the formatter the repo **already configures** (prettier/ruff/black/gofmt/rustfmt). No config → no-op. Disable with `.pilot.json {"autoformat":"off"}`; honors bypass markers. |
 | —  | Project-hook integrity warning (security) | `hooks/integrity-check.sh` | `SessionStart` | Warn when the opened project ships its own hooks in `.claude/settings*.json` (the SessionStart-hook RCE vector). Lists each foreign hook command to vet; pilot's own global hooks are not flagged. Informational, never blocks. |
 | —  | PreToolUse liveness heartbeat (diagnostics) | `hooks/pretooluse-heartbeat.sh` | `PreToolUse` (all tools) | Record each PreToolUse fire (ts + tool) so `/pilot-doctor` can prove the chain is live — PreToolUse hooks can fail silently (issue #31250). Never blocks; near-zero cost. |
+| —  | Persistent project memory (continuity) | `hooks/memory-surface.sh` | `SessionStart` | Surface `.pilot/memory.md` (durable decisions/conventions/gotchas) so context survives across sessions. Written via `/pilot-remember`; silent when absent; digest capped. |
 | —  | Routing telemetry (observability, not a guard) | `hooks/log-skill-invocation.sh` | `PostToolUse: Skill` | Append one line per Skill invocation to `~/.cache/pilot/routing.log` (capped at 500 lines). Surfaced by `/pilot-status`. |
 
 `G15` ships with pilot as `hooks/safety-gate.sh` (it folds in the
