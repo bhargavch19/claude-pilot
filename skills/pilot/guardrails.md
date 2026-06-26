@@ -31,7 +31,7 @@ into `~/.claude/settings.json` using absolute paths.
 | G7 | TS strict, no `any` without comment | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on `: any` in staged TS/TSX without `// any: <reason>` on same line. |
 | G8 | No dead code, no `console.log` | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on `console.log(` in staged TS/JS/TSX/JSX. |
 | G12 | No `sleep`/timeout patches for flaky tests | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on new `sleep(` or `setTimeout(` in staged files matching `*test*`/`*spec*`. |
-| G14 | Verify before claiming done | `hooks/verify-gate.sh` | `Stop` | Warn (no block) when transcript contains a "done"/"ready"/"passing" claim without test-runner output evidence. |
+| G14 | Verify before claiming done | `hooks/verify-gate.sh` (+ `hooks/capture-test-run.sh`) | `Stop`, `SubagentStop` (capture: `PostToolUse: Bash`) | **Block** a "done"/"ready"/"passing" claim on changed source unless a real test run was captured this session. Downgrades to warn via bypass markers / `.pilot.json {"verify_gate":"warn"}`; auto-releases after 2 blocks. |
 | —  | Routing telemetry (observability, not a guard) | `hooks/log-skill-invocation.sh` | `PostToolUse: Skill` | Append one line per Skill invocation to `~/.cache/pilot/routing.log` (capped at 500 lines). Surfaced by `/pilot-status`. |
 
 `G15` (dangerous git ops — `push --force`, `reset --hard`, `clean -f`,
@@ -78,13 +78,27 @@ into `~/.claude/settings.json` using absolute paths.
 1. Reads transcript via `transcript_path` (real Claude Code format) or
    inline `.transcript[]` (legacy fixtures).
 2. Greps last assistant messages for done/ready/passing/fixed claims.
-3. If claim present, looks for evidence: a test-runner invocation
-   (`pytest`, `bun test`, `vitest`, `nx test`, `make test`, ...) plus a
-   result token (`passed`, `PASS`, `✓`, `0 failed`, ...).
-4. Per-repo extension: `.pilot.json` `test_patterns:` list (JSON array
-   of regex strings) is unioned with the built-ins.
-5. **Warn only** — stderr message reaches the assistant as a system
-   reminder, but exit is always 0 (never blocks).
+3. Skips when no source file changed in the working tree (analysis/docs
+   turns don't trip the gate).
+4. Requires a **real captured test run**, not transcript prose: the
+   companion `capture-test-run.sh` (`PostToolUse: Bash`) records the actual
+   result of test-runner commands to `~/.cache/pilot/last-test-run`. The
+   gate clears the claim only when that fact file shows a passing run for
+   this session (session-id match, with a recency fallback when the Stop
+   payload omits a session id). A model writing "tests passed" without
+   running anything no longer clears the gate.
+5. Per-repo extension: `.pilot.json` `test_patterns:` (JSON array of regex
+   strings) extends which commands `capture-test-run.sh` treats as runners.
+6. **Blocking** — emits a `{"decision":"block"}` Stop decision by default.
+   Downgraded to warn by bypass markers (`bypass*`/`off-rails`) or per-repo
+   `.pilot.json {"verify_gate":"warn"}`, and auto-releases after 2
+   consecutive blocks so it can never trap the session.
+7. **Opt-in run mode** — `.pilot.json {"verify_gate":"run","test_command":
+   "...","test_timeout":120}` makes the gate execute the repo's test command
+   on the enforce path and use the real exit code (un-fakeable). Lazy (runs
+   only when it would otherwise block), bypass-aware (won't run when
+   bypassed), timeout-guarded, and records a pass as a capture so it runs at
+   most once per session.
 
 ## Bypass mechanisms
 
@@ -104,5 +118,7 @@ are armed — so a `--no-precommit` doesn't accidentally swallow a
 
 The marker-file path can be overridden via `XDG_CACHE_HOME`.
 
-`G14` is warn-only; bypasses don't apply there. To genuinely silence the
-verify-gate warning, run your test suite and quote the output.
+`G14` blocks by default but honors the bypass markers above (they downgrade
+it to warn) and auto-releases after 2 consecutive blocks. The intended way to
+clear it is to actually run your test suite — `capture-test-run.sh` records the
+result and the gate releases on the next stop.

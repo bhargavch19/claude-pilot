@@ -4,6 +4,38 @@ All notable changes to the `pilot` plugin are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [Semantic Versioning](https://semver.org/) once 1.0 ships.
 
+## [Unreleased]
+
+### Added
+- **`capture-test-run.sh`** — a `PostToolUse: Bash` hook that records the
+  *actual* result of test-runner commands (built-in set + per-repo
+  `.pilot.json test_patterns`) to `~/.cache/pilot/last-test-run` as JSON
+  (`{ts, session_id, cwd, command, ok}`). The result is derived from the Bash
+  tool's own captured output, not the transcript. Best-effort; PostToolUse
+  cannot block. Wired across `plugin.json`, `dev/wire-hooks.sh` /
+  `dev/unwire-hooks.sh`, `commands/pilot-doctor.md`, and the README inventory.
+
+### Changed
+- **verify-gate now requires a REAL captured test run, closing the trust
+  hole.** It previously cleared a "done"/"ready" claim by grepping the
+  transcript for runner+result words — which the model can fabricate without
+  running anything. The gate now clears only when `capture-test-run.sh`
+  recorded a passing run for this session (session-id match, with a recency
+  fallback when the Stop payload omits a session id). Transcript prose alone
+  no longer counts. All existing rails are preserved: bypass markers
+  (`bypass*`/`off-rails` → warn), per-repo `.pilot.json {"verify_gate":"warn"}`,
+  auto-release after 2 consecutive blocks, schema-drift safe-exit, and the
+  "no code changed → skip" gate. Runner-variety recognition moved out of
+  verify-gate into the capture hook.
+- **Opt-in `verify_gate:"run"` mode.** Set
+  `.pilot.json {"verify_gate":"run","test_command":"...","test_timeout":120}`
+  and the gate executes the repo's own test command and uses the **real exit
+  code** instead of any capture — un-fakeable. Runs lazily (only when a "done"
+  claim would otherwise block), respects bypass markers (won't run a suite when
+  bypassed), enforces a portable timeout (`timeout`/`gtimeout`/perl-`alarm`
+  fallback), and records a passing run as a capture so it runs at most once per
+  session.
+
 ## [0.7.0] — 2026-05-20
 
 Production-phases release. Extends the phase loop past Ship to cover the

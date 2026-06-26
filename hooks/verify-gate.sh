@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # G14 enforcement: BLOCK when the assistant claims work is "done" / "ready" /
-# "passing" without visible test-suite evidence in the transcript AND source
-# files changed. Runs on Stop and SubagentStop.
+# "passing" with source files changed but NO real test run was captured this
+# session. Trust is anchored on capture-test-run.sh's fact file (the Bash
+# tool's actual output), not transcript prose — prose can be fabricated, a
+# captured exit/result cannot. Runs on Stop and SubagentStop.
 #
 # Safety rails (cannot trap the user):
 #   - Honors pilot bypass markers ($CACHE/bypass*, $CACHE/off-rails) → warn.
@@ -77,63 +79,117 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   fi
 fi
 
-# Built-in test runners. Conservative regex: bare command followed by space
-# or end-of-line to avoid matching `make test-fixtures` etc.
-DEFAULT_RUNNERS='(pytest|npm test|npm run test|bun( run)? test|pnpm( run)? test|yarn( run)? test|cargo test|cargo nextest|go test|jest|vitest|nx test|mocha|tap|make test|gradle test|mvn test|sbt test|cabal test|stack test|dotnet test|phpunit|rspec|elixir test|mix test|node --test(-only)?)\b'
+# Require a REAL captured test run, not transcript prose. capture-test-run.sh
+# (PostToolUse/Bash) records the actual result of test commands to this fact
+# file at execution time. The model can write "tests passed" into the
+# transcript without running anything; it cannot fake the tool's own captured
+# output. So we trust the fact file, not the prose.
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/pilot"
+CNT_FILE="$CACHE_DIR/verify-gate-blocks"
+FACT="$CACHE_DIR/last-test-run"
+mkdir -p "$CACHE_DIR" 2>/dev/null || true
+
+SESSION=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+
+# A capture clears the gate only when it passed AND belongs to this run:
+# match by session_id when both sides have one, else fall back to a recency
+# window (the Stop payload may omit session_id in older schemas / fixtures).
+CAPTURE_OK=0
+if [[ -f "$FACT" ]] && jq empty "$FACT" 2>/dev/null; then
+  F_OK=$(jq -r '(.ok // false) | tostring' "$FACT" 2>/dev/null || echo false)
+  F_SESS=$(jq -r '.session_id // empty' "$FACT" 2>/dev/null || true)
+  F_TS=$(jq -r '.ts // 0' "$FACT" 2>/dev/null || echo 0)
+  [[ "$F_TS" =~ ^[0-9]+$ ]] || F_TS=0
+  if [[ "$F_OK" == "true" ]]; then
+    if [[ -n "$SESSION" && -n "$F_SESS" ]]; then
+      [[ "$SESSION" == "$F_SESS" ]] && CAPTURE_OK=1
+    else
+      NOW=$(date +%s 2>/dev/null || echo 0)
+      [[ "$NOW" =~ ^[0-9]+$ ]] || NOW=0
+      if [[ "$NOW" -gt 0 && $((NOW - F_TS)) -lt 14400 ]]; then CAPTURE_OK=1; fi
+    fi
+  fi
+fi
+
+if [[ "$CAPTURE_OK" == "1" ]]; then
+  : > "$CNT_FILE" 2>/dev/null || true   # real captured pass → reset block counter
+  exit 0
+fi
+
+# --- No real captured test run for a "done" claim on changed code: ENFORCE ---
+MODE="block"
 
 # Resolve .pilot.json: cwd first, else the git repo root. The Stop hook can run
 # from a subdirectory (e.g. the shell was left in tests/), so a cwd-only lookup
 # silently drops per-repo config. Walk up to the git root as a fallback.
 PILOT_JSON=""
+GITROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 if [[ -f .pilot.json ]]; then
   PILOT_JSON=".pilot.json"
-else
-  GITROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
-  [[ -n "$GITROOT" && -f "$GITROOT/.pilot.json" ]] && PILOT_JSON="$GITROOT/.pilot.json"
+elif [[ -n "$GITROOT" && -f "$GITROOT/.pilot.json" ]]; then
+  PILOT_JSON="$GITROOT/.pilot.json"
 fi
 
-# Per-repo runner extensions via .pilot.json. (YAML support dropped in 0.3.0:
-# the awk-based parser couldn't handle quoted values, multi-key files, or
-# indented blocks reliably. Use jq + JSON.)
-EXTRA_PATTERNS=""
-if [[ -n "$PILOT_JSON" ]]; then
-  EXTRA_PATTERNS=$(jq -r '.test_patterns[]? // empty' "$PILOT_JSON" 2>/dev/null | paste -sd'|' - 2>/dev/null || true)
-fi
+VG_MODE=""
+[[ -n "$PILOT_JSON" ]] && VG_MODE=$(jq -r '.verify_gate // empty' "$PILOT_JSON" 2>/dev/null || true)
 
-if [[ -n "$EXTRA_PATTERNS" ]]; then
-  # Strip the leading `(` and trailing `)\b` from DEFAULT_RUNNERS, then union.
-  CORE=${DEFAULT_RUNNERS#(}
-  CORE=${CORE%)\\b}
-  RUNNERS="(${CORE}|${EXTRA_PATTERNS})\b"
-else
-  RUNNERS="$DEFAULT_RUNNERS"
-fi
-
-RESULTS='(passed|PASS|✓|✔|All tests pass|tests passed|0 failed|0 failures|0 errors|ok [0-9]+|OK \(|pass [0-9]+|fail 0)'
-
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/pilot"
-CNT_FILE="$CACHE_DIR/verify-gate-blocks"
-mkdir -p "$CACHE_DIR" 2>/dev/null || true
-
-if echo "$LAST" | grep -qE "$RUNNERS" && echo "$LAST" | grep -qE "$RESULTS"; then
-  : > "$CNT_FILE" 2>/dev/null || true   # evidence present → reset block counter
-  exit 0
-fi
-
-# --- No evidence for a "done" claim on changed code: ENFORCE ---
-MODE="block"
-
-# Per-repo downgrade (uses the resolved .pilot.json, cwd or git root).
-if [[ -n "$PILOT_JSON" ]]; then
-  M=$(jq -r '.verify_gate // empty' "$PILOT_JSON" 2>/dev/null || true)
-  [[ "$M" == "warn" ]] && MODE="warn"
-fi
-
-# Session-wide bypass markers (pilot off / off-rails). Uses compgen (no pipe)
-# so it stays correct under `set -o pipefail` even when a glob has no match.
+# Session-wide bypass markers (pilot off / off-rails). Detected once here so
+# run mode also respects them (don't execute a suite when the user bypassed).
+BYPASSED=0
 if compgen -G "$CACHE_DIR/bypass*" >/dev/null 2>&1 || [[ -e "$CACHE_DIR/off-rails" ]]; then
-  MODE="warn"
+  BYPASSED=1
 fi
+
+# Portable command timeout: prefer timeout/gtimeout, fall back to perl's alarm
+# (macOS ships perl but not GNU timeout). Last resort: run without a cap.
+_vg_run_with_timeout() {
+  local secs="$1" cmd="$2"
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$secs" bash -c "$cmd"
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$secs" bash -c "$cmd"
+  elif command -v perl >/dev/null 2>&1; then
+    perl -e 'alarm shift @ARGV; exec @ARGV or exit 127' "$secs" bash -c "$cmd"
+  else
+    bash -c "$cmd"
+  fi
+}
+
+RUN_NOTE=""
+
+# Opt-in run mode: rather than trust any capture, the gate executes the repo's
+# own test command and uses the REAL exit code — un-fakeable. Runs only on the
+# enforce path (a "done" claim with no valid capture), so the suite runs lazily
+# and at most once per session (a pass is recorded as a capture below).
+#   .pilot.json: { "verify_gate":"run",
+#                  "test_command":"bash tests/run.sh", "test_timeout":120 }
+if [[ "$VG_MODE" == "run" && "$BYPASSED" == "0" ]]; then
+  TEST_CMD=$(jq -r '.test_command // empty' "$PILOT_JSON" 2>/dev/null || true)
+  if [[ -n "$TEST_CMD" ]]; then
+    TIMEOUT=$(jq -r '.test_timeout // 120' "$PILOT_JSON" 2>/dev/null || echo 120)
+    [[ "$TIMEOUT" =~ ^[0-9]+$ ]] || TIMEOUT=120
+    RUNROOT="${GITROOT:-$PWD}"
+    if ( cd "$RUNROOT" && _vg_run_with_timeout "$TIMEOUT" "$TEST_CMD" >/dev/null 2>&1 ); then
+      RC=0
+    else
+      RC=$?
+    fi
+    if [[ "$RC" == "0" ]]; then
+      NOW=$(date +%s 2>/dev/null || echo 0)
+      jq -cn --argjson ts "$NOW" --arg s "$SESSION" --arg w "$RUNROOT" --arg c "$TEST_CMD" \
+        '{ts:$ts, session_id:$s, cwd:$w, command:$c, ok:true}' > "$FACT" 2>/dev/null || true
+      : > "$CNT_FILE" 2>/dev/null || true   # real pass → reset block counter
+      exit 0
+    fi
+    RUN_NOTE=" (verify_gate:run executed \`$TEST_CMD\` → exit $RC)"
+  else
+    RUN_NOTE=" (verify_gate:run set but no test_command in .pilot.json — cannot self-verify)"
+  fi
+fi
+
+# Per-repo downgrade and session bypass both soften block → warn.
+[[ "$VG_MODE" == "warn" ]] && MODE="warn"
+[[ "$BYPASSED" == "1" ]] && MODE="warn"
 
 # Anti-trap: release after 2 consecutive blocks so the gate can never loop.
 CNT=0; [[ -f "$CNT_FILE" ]] && CNT=$(cat "$CNT_FILE" 2>/dev/null || echo 0)
@@ -142,7 +198,8 @@ if [[ "$MODE" == "block" && "$CNT" -ge 2 ]]; then
   MODE="warn"
 fi
 
-MSG='verify-gate: G14 — "done"/"ready" claimed, source changed, but no test-suite evidence in the transcript. Run the project tests and quote the result (or superpowers:verification-before-completion). Bypass: type "pilot off", or set {"verify_gate":"warn"} in .pilot.json.'
+MSG='verify-gate: G14 — "done"/"ready" claimed and source changed, but no REAL test run was captured this session (transcript prose does not count). Actually run the project tests so their result is captured, then stop. Bypass: type "pilot off", or set {"verify_gate":"warn"} in .pilot.json.'
+MSG="$MSG$RUN_NOTE"
 
 if [[ "$MODE" == "block" ]]; then
   echo $((CNT + 1)) > "$CNT_FILE" 2>/dev/null || true

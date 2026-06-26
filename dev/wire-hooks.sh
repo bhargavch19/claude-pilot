@@ -38,8 +38,11 @@ jq --arg pd "$PLUGIN_DIR" '
         {"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":($pd + "/hooks/plan-gate.sh")}]},
         {"matcher":"Bash","hooks":[{"type":"command","command":($pd + "/hooks/pre-commit.sh")}]}
       ] |
-  .hooks.PostToolUse = ((.hooks.PostToolUse // []) | drop_pilot("log-skill-invocation.sh"))
-    + [{"matcher":"Skill","hooks":[{"type":"command","command":($pd + "/hooks/log-skill-invocation.sh")}]}] |
+  .hooks.PostToolUse = ((.hooks.PostToolUse // []) | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh"))
+    + [
+        {"matcher":"Skill","hooks":[{"type":"command","command":($pd + "/hooks/log-skill-invocation.sh")}]},
+        {"matcher":"Bash","hooks":[{"type":"command","command":($pd + "/hooks/capture-test-run.sh")}]}
+      ] |
   .hooks.Stop = ((.hooks.Stop // []) | drop_pilot("verify-gate.sh"))
     + [{"hooks":[{"type":"command","command":($pd + "/hooks/verify-gate.sh")}]}] |
   .hooks.SubagentStop = ((.hooks.SubagentStop // []) | drop_pilot("verify-gate.sh"))
