@@ -18,6 +18,9 @@ let's improve-codebase-architecture here	improve-codebase-architecture
 run gsd-debug on this failure	gsd-debug
 do the gsd-plan-phase step	gsd-plan-phase
 paul:init the project	paul:init
+run paul:plan then review	paul:plan
+do paul:apply now	paul:apply
+paul:unify to close the loop	paul:unify
 # --- common words / fuzzy intent → advisor stays silent ---
 fix the login bug	NONE
 review my code	NONE

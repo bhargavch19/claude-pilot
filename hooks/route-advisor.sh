@@ -83,6 +83,19 @@ $(awk -F'|' '
 ' "$REG")
 EOF
 
+# PAUL is a first-class spine namespace: any literal `paul:<cmd>` the user types
+# is unambiguous intent and routes deterministically — even if that specific
+# command isn't enumerated in registry.md (PAUL ships ~25 of them; the registry
+# only lists paul:init at Bootstrap). The colon makes it impossible to confuse
+# with prose, so this is safe. Bare "paul" stays deferred to the model.
+for tok in $(printf '%s' "$PROMPT_LC" | grep -oE 'paul:[a-z][a-z0-9-]+' | sort -u); do
+  case "$seen" in *" $tok "*) continue ;; esac
+  seen="$seen$tok "
+  [ "$nchain" -gt 0 ] && chain="$chain; "
+  chain="$chain PAUL → \`$tok\`"
+  nchain=$((nchain + 1))
+done
+
 # Project-state spine (deterministic): .planning/ → GSD, .paul/ → PAUL.
 GITROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 BASE="${GITROOT:-$PWD}"
