@@ -52,6 +52,10 @@ if ! jq -e '.hooks.SessionStart | map(.hooks[].command) | map(endswith("/hooks/s
   echo "FAIL: sessionstart-banner.sh not wired"
   exit 1
 fi
+if ! jq -e '.hooks.SessionStart | map(.hooks[].command) | map(endswith("/hooks/integrity-check.sh")) | any' "$TMP/.claude/settings.json" >/dev/null; then
+  echo "FAIL: integrity-check.sh not wired"
+  exit 1
+fi
 if ! jq -e '.hooks.PreCompact | map(.hooks[].command) | map(endswith("/hooks/precompact-anchor.sh")) | any' "$TMP/.claude/settings.json" >/dev/null; then
   echo "FAIL: precompact-anchor.sh not wired"
   exit 1
@@ -93,7 +97,7 @@ if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | index("/some/other/hook.
   echo "FAIL: non-pilot hook lost during wire"
   exit 1
 fi
-echo "PASS: wire installs 10 pilot hooks (incl. PreToolUse:Bash safety-gate + PostToolUse capture-test-run/autoformat/telemetry + UserPromptSubmit route-advisor) and preserves foreign hook"
+echo "PASS: wire installs 11 pilot hooks (incl. safety-gate, capture-test-run, autoformat, integrity-check, route-advisor) and preserves foreign hook"
 
 # Wire again — must be idempotent (still exactly one of each).
 HOME="$TMP" bash "$ROOT/dev/wire-hooks.sh" >/dev/null
@@ -126,6 +130,10 @@ if jq -e '..|.command? | strings | endswith("/hooks/safety-gate.sh")' "$TMP/.cla
 fi
 if jq -e '..|.command? | strings | endswith("/hooks/autoformat.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
   echo "FAIL: autoformat.sh remained after unwire"
+  exit 1
+fi
+if jq -e '..|.command? | strings | endswith("/hooks/integrity-check.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
+  echo "FAIL: integrity-check.sh remained after unwire"
   exit 1
 fi
 if jq -e '..|.command? | strings | endswith("/hooks/route-advisor.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then

@@ -7,6 +7,12 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 ## [Unreleased]
 
 ### Added
+- **`integrity-check.sh`** — a `SessionStart` hook that warns when the opened
+  project ships its own Claude Code hooks in `.claude/settings.json` /
+  `settings.local.json` (the SessionStart-hook RCE vector — a real PyPI-worm
+  incident). Lists each foreign hook command to vet; pilot's own global hooks
+  are not flagged; also warns if the routing registry is missing. Informational,
+  never blocks. Wired across all sync points with tests.
 - **`/pilot-floor` command** — applies the production-quality floor (CI
   workflow + pre-commit config) to the current project via the now-tested
   `apply-floor.sh` (idempotent, never overwrites). New

@@ -29,7 +29,7 @@ jq --arg pd "$PLUGIN_DIR" '
       | (.PostToolUse  // [] | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh") | drop_pilot("autoformat.sh")) as $po
       | (.Stop         // [] | drop_pilot("verify-gate.sh"))                             as $s
       | (.SubagentStop // [] | drop_pilot("verify-gate.sh"))                             as $sa
-      | (.SessionStart // [] | drop_pilot("sessionstart-banner.sh"))                     as $ss
+      | (.SessionStart // [] | drop_pilot("sessionstart-banner.sh") | drop_pilot("integrity-check.sh")) as $ss
       | (.PreCompact   // [] | drop_pilot("precompact-anchor.sh"))                       as $pc
       | (.UserPromptSubmit // [] | drop_pilot("route-advisor.sh"))                       as $up
       | { PreToolUse: $p, PostToolUse: $po, Stop: $s, SubagentStop: $sa, SessionStart: $ss, PreCompact: $pc, UserPromptSubmit: $up }

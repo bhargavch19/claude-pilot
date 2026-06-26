@@ -51,8 +51,11 @@ jq --arg pd "$PLUGIN_DIR" '
     + [{"hooks":[{"type":"command","command":($pd + "/hooks/verify-gate.sh")}]}] |
   .hooks.SubagentStop = ((.hooks.SubagentStop // []) | drop_pilot("verify-gate.sh"))
     + [{"hooks":[{"type":"command","command":($pd + "/hooks/verify-gate.sh")}]}] |
-  .hooks.SessionStart = ((.hooks.SessionStart // []) | drop_pilot("sessionstart-banner.sh"))
-    + [{"hooks":[{"type":"command","command":($pd + "/hooks/sessionstart-banner.sh")}]}] |
+  .hooks.SessionStart = ((.hooks.SessionStart // []) | drop_pilot("sessionstart-banner.sh") | drop_pilot("integrity-check.sh"))
+    + [{"hooks":[
+        {"type":"command","command":($pd + "/hooks/sessionstart-banner.sh")},
+        {"type":"command","command":($pd + "/hooks/integrity-check.sh")}
+      ]}] |
   .hooks.PreCompact = ((.hooks.PreCompact // []) | drop_pilot("precompact-anchor.sh"))
     + [{"hooks":[{"type":"command","command":($pd + "/hooks/precompact-anchor.sh")}]}] |
   .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) | drop_pilot("route-advisor.sh"))
