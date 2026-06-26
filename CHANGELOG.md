@@ -4,7 +4,13 @@ All notable changes to the `pilot` plugin are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [Semantic Versioning](https://semver.org/) once 1.0 ships.
 
-## [Unreleased]
+## [0.8.0] — 2026-06-26
+
+Hardening release. Closes the verify-gate trust hole (real captured test runs),
+adds a fail-closed destructive-command safety gate, a routing eval + A/B
+measurement harness, repo-config-gated auto-format, a live production-floor
+applier, project-hook integrity warnings, and a PreToolUse liveness heartbeat.
+Pilot hooks: 7 → 12.
 
 ### Added
 - **`pretooluse-heartbeat.sh`** — a `PreToolUse` (all-tools) hook that records

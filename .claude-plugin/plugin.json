@@ -1,6 +1,6 @@
 {
   "name": "pilot",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Unified AI coding conductor — auto-routes intent to the right skill (grill, plan, TDD, debug, verify, ship), enforces CLAUDE.md quality gates, and stays extensible via registry.md.",
   "author": {
     "name": "Bhargav Chelluboina"
