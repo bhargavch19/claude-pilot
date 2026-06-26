@@ -47,13 +47,29 @@ Run during **Phase 0.75 Bootstrap**, after `gsd-new-project` / `init`:
 
 Idempotent: re-running must not duplicate files or workflow jobs.
 
-## Activation (the parts that need an explicit human go)
+## Applying the floor
+
+Run `/pilot-floor` (or `skills/pilot/playbooks/apply-floor.sh [target-dir]`) to drop the
+CI workflow + pre-commit config idempotently. It never overwrites an existing file and
+prints the remaining human-confirmed steps. Tune the templates to your stack.
+
+## Already activated in pilot itself (local blocking gates)
+
+These ship enabled — no manual flip needed:
+
+- **`verify-gate.sh` blocks by default** and is **capture-based**: a "done"/"ready"
+  claim on a source-touching turn is refused unless a *real* test run was captured this
+  session (`capture-test-run.sh`), not just claimed in prose. Auto-releases after 2
+  blocks so it can't trap you; downgrade per-repo with `.pilot.json {"verify_gate":"warn"}`
+  or have the gate run the suite itself with `{"verify_gate":"run"}`.
+- **`safety-gate.sh` (G15)** fail-closed blocks destructive commands (`rm -rf` on
+  home/root/system, force push / `reset --hard` / `clean -f` / `branch -D`, secret
+  reads/exfil) — folds in the `git-guardrails` posture.
+
+## Activation that still needs an explicit human go
 
 These are **outward / behavior-changing** and are NOT auto-applied:
 
-- **Flip `verify-gate.sh` from warn → block** so a "done" claim on a source-touching
-  turn is refused until verification ran. High value, but a buggy block can trap you —
-  enable deliberately.
 - **`hookify` (official, `anthropics/claude-code`)** — author markdown-defined blocking
   hooks wrapping the CLIs above, instead of hand-writing hook JSON.
 - **`semgrep` PreToolUse** (vendor `semgrep/guardian`) — only third-party blocking hook
@@ -65,4 +81,5 @@ These are **outward / behavior-changing** and are NOT auto-applied:
 
 `verify`, `security-review`, `migration-safety`, `pre-deploy-checklist`,
 `post-deploy-monitor`, `gsd-secure-phase`, `gsd-eval-review`, `gsd-validate-phase`,
-`git-guardrails`. The floor's job is to make these **blocking** where today they advise.
+`git-guardrails`, plus the local `verify-gate`/`safety-gate` hooks above. The floor's job
+is to make these **blocking** where today they advise.

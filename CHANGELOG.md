@@ -7,6 +7,10 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 ## [Unreleased]
 
 ### Added
+- **`/pilot-floor` command** — applies the production-quality floor (CI
+  workflow + pre-commit config) to the current project via the now-tested
+  `apply-floor.sh` (idempotent, never overwrites). New
+  `tests/skills/test_apply_floor.sh` covers the applier and template validity.
 - **`autoformat.sh`** — a `PostToolUse: Edit|Write|MultiEdit` hook that formats
   the just-edited file using the formatter the repo **already configures**
   (prettier/ruff/black/gofmt/rustfmt). No matching config → no-op, so it never
@@ -39,6 +43,10 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
   `dev/unwire-hooks.sh`, `commands/pilot-doctor.md`, and the README inventory.
 
 ### Changed
+- **Production floor reconciled.** `production-floor.md` now reflects that
+  `verify-gate` (capture-based block) and `safety-gate` (G15) ship enabled —
+  they're no longer listed as pending manual activation — and points to
+  `/pilot-floor` for applying the CI/pre-commit templates.
 - **verify-gate now requires a REAL captured test run, closing the trust
   hole.** It previously cleared a "done"/"ready" claim by grepping the
   transcript for runner+result words — which the model can fabricate without
