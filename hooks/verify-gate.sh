@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# G14 soft enforcement: warn when the assistant claims work is "done" /
-# "ready" / "passing" without visible test-suite evidence in the transcript.
-# Runs on Stop and SubagentStop. Never blocks (warning only — exit 0).
+# G14 enforcement: BLOCK when the assistant claims work is "done" / "ready" /
+# "passing" without visible test-suite evidence in the transcript AND source
+# files changed. Runs on Stop and SubagentStop.
+#
+# Safety rails (cannot trap the user):
+#   - Honors pilot bypass markers ($CACHE/bypass*, $CACHE/off-rails) → warn.
+#   - Per-repo downgrade: .pilot.json { "verify_gate": "warn" } → warn.
+#   - Auto-releases after 2 consecutive blocks so it can never loop.
 #
 # Per-repo overrides: add `.pilot.json` at the repo root with extra
 # runner regexes:
-#   { "test_patterns": ["rake test", "my-custom-runner"] }
+#   { "test_patterns": ["rake test", "my-custom-runner"], "verify_gate": "warn" }
 set -euo pipefail
 
 INPUT=$(cat)
@@ -76,12 +81,23 @@ fi
 # or end-of-line to avoid matching `make test-fixtures` etc.
 DEFAULT_RUNNERS='(pytest|npm test|npm run test|bun( run)? test|pnpm( run)? test|yarn( run)? test|cargo test|cargo nextest|go test|jest|vitest|nx test|mocha|tap|make test|gradle test|mvn test|sbt test|cabal test|stack test|dotnet test|phpunit|rspec|elixir test|mix test|node --test(-only)?)\b'
 
+# Resolve .pilot.json: cwd first, else the git repo root. The Stop hook can run
+# from a subdirectory (e.g. the shell was left in tests/), so a cwd-only lookup
+# silently drops per-repo config. Walk up to the git root as a fallback.
+PILOT_JSON=""
+if [[ -f .pilot.json ]]; then
+  PILOT_JSON=".pilot.json"
+else
+  GITROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+  [[ -n "$GITROOT" && -f "$GITROOT/.pilot.json" ]] && PILOT_JSON="$GITROOT/.pilot.json"
+fi
+
 # Per-repo runner extensions via .pilot.json. (YAML support dropped in 0.3.0:
 # the awk-based parser couldn't handle quoted values, multi-key files, or
 # indented blocks reliably. Use jq + JSON.)
 EXTRA_PATTERNS=""
-if [[ -f .pilot.json ]]; then
-  EXTRA_PATTERNS=$(jq -r '.test_patterns[]? // empty' .pilot.json 2>/dev/null | paste -sd'|' - 2>/dev/null || true)
+if [[ -n "$PILOT_JSON" ]]; then
+  EXTRA_PATTERNS=$(jq -r '.test_patterns[]? // empty' "$PILOT_JSON" 2>/dev/null | paste -sd'|' - 2>/dev/null || true)
 fi
 
 if [[ -n "$EXTRA_PATTERNS" ]]; then
@@ -95,16 +111,50 @@ fi
 
 RESULTS='(passed|PASS|✓|✔|All tests pass|tests passed|0 failed|0 failures|0 errors|ok [0-9]+|OK \(|pass [0-9]+|fail 0)'
 
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/pilot"
+CNT_FILE="$CACHE_DIR/verify-gate-blocks"
+mkdir -p "$CACHE_DIR" 2>/dev/null || true
+
 if echo "$LAST" | grep -qE "$RUNNERS" && echo "$LAST" | grep -qE "$RESULTS"; then
+  : > "$CNT_FILE" 2>/dev/null || true   # evidence present → reset block counter
   exit 0
 fi
 
-cat <<EOF >&2
-verify-gate: G14 — "done" / "ready" claim without test-suite evidence.
+# --- No evidence for a "done" claim on changed code: ENFORCE ---
+MODE="block"
 
-Run the project's tests and quote the result, or invoke
-superpowers:verification-before-completion before claiming complete.
+# Per-repo downgrade (uses the resolved .pilot.json, cwd or git root).
+if [[ -n "$PILOT_JSON" ]]; then
+  M=$(jq -r '.verify_gate // empty' "$PILOT_JSON" 2>/dev/null || true)
+  [[ "$M" == "warn" ]] && MODE="warn"
+fi
 
-Configured runners: built-ins + .pilot.yml/.pilot.json test_patterns.
-EOF
+# Session-wide bypass markers (pilot off / off-rails). Uses compgen (no pipe)
+# so it stays correct under `set -o pipefail` even when a glob has no match.
+if compgen -G "$CACHE_DIR/bypass*" >/dev/null 2>&1 || [[ -e "$CACHE_DIR/off-rails" ]]; then
+  MODE="warn"
+fi
+
+# Anti-trap: release after 2 consecutive blocks so the gate can never loop.
+CNT=0; [[ -f "$CNT_FILE" ]] && CNT=$(cat "$CNT_FILE" 2>/dev/null || echo 0)
+[[ "$CNT" =~ ^[0-9]+$ ]] || CNT=0
+if [[ "$MODE" == "block" && "$CNT" -ge 2 ]]; then
+  MODE="warn"
+fi
+
+MSG='verify-gate: G14 — "done"/"ready" claimed, source changed, but no test-suite evidence in the transcript. Run the project tests and quote the result (or superpowers:verification-before-completion). Bypass: type "pilot off", or set {"verify_gate":"warn"} in .pilot.json.'
+
+if [[ "$MODE" == "block" ]]; then
+  echo $((CNT + 1)) > "$CNT_FILE" 2>/dev/null || true
+  # Stop-hook block: refuse the stop and feed the reason back to the model.
+  if command -v jq >/dev/null 2>&1; then
+    jq -cn --arg r "$MSG" '{decision:"block", reason:$r}'
+  else
+    printf '{"decision":"block","reason":"%s"}\n' "$MSG"
+  fi
+  exit 0
+fi
+
+: > "$CNT_FILE" 2>/dev/null || true       # warn path → reset counter
+echo "$MSG" >&2
 exit 0

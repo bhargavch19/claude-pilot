@@ -8,7 +8,7 @@ stays extensible through a one-line registry edit.
 - **Repository structure:** Claude Code single-plugin marketplace
   (`.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` at root).
 - **Skill source:** `skills/pilot/` — `SKILL.md` (routing playbook) + `registry.md` (single-source-of-truth phase table) + `guardrails.md` (CLAUDE.md → hook mapping) + `playbooks/`.
-- **Hooks:** `hooks/{plan-gate,pre-commit,verify-gate,sessionstart-banner,precompact-anchor,log-skill-invocation}.sh` — wired across PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, PreCompact.
+- **Hooks:** `hooks/{plan-gate,pre-commit,verify-gate,sessionstart-banner,precompact-anchor,log-skill-invocation,route-advisor}.sh` — wired across PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, PreCompact, UserPromptSubmit.
 - **MCPs (bundled):** `context7` (docs) · `playwright` (UI verify) · `github` (review / ship).
 - **Bundled skills (this plugin's own):** `migration-safety`, `pre-deploy-checklist`, `post-deploy-monitor` (all under `skills/`). Currently scaffolds — see `docs/superpowers/plans/2026-05-20-production-hardening.md` for completion queue.
 - **Slash commands:** `commands/pilot-{status,off,off-rails,back-on,bypass,doctor,trace}.md`.
@@ -95,6 +95,7 @@ rm ~/.claude/skills/pilot                              # only if you symlinked
 
 1. **Literal-name shortcut.** If your prompt literally names a skill or MCP (`context7`, `playwright`, `tdd`, `frontend-design`, `improve-codebase-architecture`, etc.), pilot routes there immediately — skipping keyword-based phase detection. Multi-mention prompts produce a sequenced phase chain. See "How to invoke pilot" below.
 2. **Phase routing.** When no literal name is present, pilot reads `skills/pilot/registry.md`, scans the user message for trigger keywords, inspects project state (`.planning/`, `git status`, `git log`), and invokes the right underlying skill via the Skill tool.
+   - **Deterministic route advisor (`route-advisor.sh`, UserPromptSubmit).** Before the model sees the prompt, this hook computes — in code, from `registry.md` — the *unambiguous* part of the route and injects it: distinctive literal skill names (hyphen/colon/digit names, e.g. `tdd`, `improve-codebase-architecture`, `gsd-*`, `paul:*`) and project-state spine (`.planning/`→GSD, `.paul/`→PAUL). Common-English skill names (`review`, `run`, `verify`) and all fuzzy intent are deliberately left to the model — the hook only hard-routes what code can decide correctly, so routing is deterministic where it can be and model-judged where it must be.
 3. **Quality gates.** Six hooks enforce CLAUDE.md-aligned rules — see `skills/pilot/guardrails.md` for the full mapping.
 4. **Bundled MCPs.** `context7` (docs lookup), `playwright` (UI verify), and `github` (review / ship) start automatically and are surfaced to the Skill tool as `mcp__<name>__*` tools.
 5. **Stay extensible.** Adding a new skill is a one-line append to `registry.md`. Adding a new guardrail is a hook script plus a test under `tests/hooks/`.
@@ -161,8 +162,11 @@ Beyond the core Frame → Plan → Build → Verify → Review → Ship → Capt
 | 0.75 | Bootstrap | `init` | repo has no CLAUDE.md |
 | 4.5 | Performance | `diagnose` | "slow", "latency", "profile", "regression" |
 | 6.5 | Security | `security-review` | "audit", "OWASP", diff touches auth/crypto/network |
+| 6.75 | Documentation | `gsd-docs-update` | "document", "update README", "API docs", "docstrings" |
 | 7.5 | Migration | `migration-safety`* | diff touches `migrations/` or lockfile |
+| 7.6 | Dependencies | `migration-safety`* | "update deps", "outdated packages", "CVE", "npm audit" |
 | 7.75 | Pre-deploy | `pre-deploy-checklist`* | immediately before Ship on a release branch |
+| 8.25 | Release | `claude-mem:version-bump` | "release", "version bump", "changelog", "tag" |
 | 8.5 | Post-deploy | `post-deploy-monitor`* | after Ship completes |
 
 `*` Scaffold — registers and redirects to a working fallback. Full content in queue (see `docs/superpowers/plans/2026-05-20-production-hardening.md`).
@@ -205,15 +209,23 @@ Each limitation surfaces in `/pilot-doctor` when it matters.
 
 ## Configuration
 
-Per-repo runner extensions for `verify-gate.sh` via `.pilot.json` at the
-repo root:
+Per-repo config for `verify-gate.sh` via `.pilot.json` at the repo root
+(resolved from cwd or the git root, so it works from any subdirectory):
 
 ```json
-{ "test_patterns": ["rake test", "my-custom-runner"] }
+{
+  "test_patterns": ["rake test", "my-custom-runner"],
+  "verify_gate": "warn"
+}
 ```
 
-The patterns are regex strings; they're unioned with pilot's built-in
-runner list (pytest, bun test, vitest, nx test, make test, ...).
+`test_patterns` are regex strings, unioned with pilot's built-in runner list
+(pytest, bun test, vitest, nx test, make test, ...). `verify_gate` controls
+enforcement: by default the gate **blocks** a "done"/"ready" claim that has no
+test evidence on a turn that changed source; set `"verify_gate": "warn"` to
+downgrade to a non-blocking warning for that repo. The gate also honors the
+session bypass markers (`/pilot-off`, `/pilot-off-rails`) and auto-releases
+after two consecutive blocks so it can never trap a session.
 
 ## Tests
 

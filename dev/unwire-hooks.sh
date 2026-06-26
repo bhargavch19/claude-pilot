@@ -31,8 +31,9 @@ jq --arg pd "$PLUGIN_DIR" '
       | (.SubagentStop // [] | drop_pilot("verify-gate.sh"))                             as $sa
       | (.SessionStart // [] | drop_pilot("sessionstart-banner.sh"))                     as $ss
       | (.PreCompact   // [] | drop_pilot("precompact-anchor.sh"))                       as $pc
-      | { PreToolUse: $p, PostToolUse: $po, Stop: $s, SubagentStop: $sa, SessionStart: $ss, PreCompact: $pc }
-        + (del(.PreToolUse, .PostToolUse, .Stop, .SubagentStop, .SessionStart, .PreCompact))
+      | (.UserPromptSubmit // [] | drop_pilot("route-advisor.sh"))                       as $up
+      | { PreToolUse: $p, PostToolUse: $po, Stop: $s, SubagentStop: $sa, SessionStart: $ss, PreCompact: $pc, UserPromptSubmit: $up }
+        + (del(.PreToolUse, .PostToolUse, .Stop, .SubagentStop, .SessionStart, .PreCompact, .UserPromptSubmit))
       )
     # Drop now-empty hook arrays for cleanliness.
     | .hooks |= with_entries(select(.value | length > 0))

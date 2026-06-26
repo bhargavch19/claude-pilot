@@ -9,6 +9,14 @@ TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 cd "$TMP"
 
+# Isolate the gate's state dir (block counter + bypass markers) so tests are
+# deterministic and never touch the real ~/.cache/pilot.
+export XDG_CACHE_HOME="$TMP/cache"
+mkdir -p "$XDG_CACHE_HOME/pilot"
+RESET() { rm -f "$XDG_CACHE_HOME"/pilot/verify-gate-blocks \
+                 "$XDG_CACHE_HOME"/pilot/bypass-session \
+                 "$XDG_CACHE_HOME"/pilot/off-rails; }
+
 # ---- inline-transcript fallback (legacy fixture format) -----------------
 
 # Case 1: claim of done WITH test output → no warning.
@@ -146,5 +154,61 @@ t=$(mk_transcript "All done. Shipping.")
 OUT=$( cd "$GITREPO" && mk_input "$t" | "$HOOK" 2>&1 || true )
 [[ "$OUT" != *"verify-gate"* ]] || { echo "FAIL: flagged done on a docs-only change"; exit 1; }
 echo "PASS: done on docs-only change not flagged"
+
+# ---- block vs warn contract (the enforcement behavior) ------------------
+# A flagged turn must BLOCK (emit a Stop decision on stdout), unless a bypass
+# downgrades it to warn. These distinguish block from warn — the substring
+# checks above do not.
+BLOCKREPO="$TMP/blockrepo"
+mkdir -p "$BLOCKREPO"
+( cd "$BLOCKREPO" && git init -q && echo "export const y = 1;" > a.ts )
+tdone=$(mk_transcript "All done. Shipping.")
+
+# Case 15: bare done + changed source, no bypass → decision:block on stdout.
+RESET
+OUT=$( cd "$BLOCKREPO" && mk_input "$tdone" | "$HOOK" 2>/dev/null )
+[[ "$OUT" == *'"decision":"block"'* ]] || { echo "FAIL: expected decision:block on stdout, got: $OUT"; exit 1; }
+echo "PASS: flagged turn emits Stop block decision"
+
+# Case 16: bypass-session marker → warn, never blocks.
+RESET; touch "$XDG_CACHE_HOME/pilot/bypass-session"
+OUT=$( cd "$BLOCKREPO" && mk_input "$tdone" | "$HOOK" 2>/dev/null )
+[[ "$OUT" != *'"decision":"block"'* ]] || { echo "FAIL: bypass-session should downgrade block→warn"; exit 1; }
+echo "PASS: bypass-session downgrades block→warn"
+
+# Case 17: off-rails marker → warn, never blocks.
+RESET; touch "$XDG_CACHE_HOME/pilot/off-rails"
+OUT=$( cd "$BLOCKREPO" && mk_input "$tdone" | "$HOOK" 2>/dev/null )
+[[ "$OUT" != *'"decision":"block"'* ]] || { echo "FAIL: off-rails should downgrade block→warn"; exit 1; }
+echo "PASS: off-rails downgrades block→warn"
+
+# Case 18: per-repo .pilot.json verify_gate:warn → warn, never blocks.
+RESET; echo '{"verify_gate":"warn"}' > "$BLOCKREPO/.pilot.json"
+OUT=$( cd "$BLOCKREPO" && mk_input "$tdone" | "$HOOK" 2>/dev/null )
+[[ "$OUT" != *'"decision":"block"'* ]] || { echo "FAIL: .pilot.json verify_gate:warn should downgrade"; exit 1; }
+echo "PASS: .pilot.json verify_gate:warn downgrades block→warn"
+rm -f "$BLOCKREPO/.pilot.json"
+
+# Case 19: anti-trap — first two block, third auto-releases to warn.
+RESET
+b1=$( cd "$BLOCKREPO" && mk_input "$tdone" | "$HOOK" 2>/dev/null )
+b2=$( cd "$BLOCKREPO" && mk_input "$tdone" | "$HOOK" 2>/dev/null )
+b3=$( cd "$BLOCKREPO" && mk_input "$tdone" | "$HOOK" 2>/dev/null )
+{ [[ "$b1" == *'"decision":"block"'* ]] && [[ "$b2" == *'"decision":"block"'* ]]; } \
+  || { echo "FAIL: first two turns should block"; exit 1; }
+[[ "$b3" != *'"decision":"block"'* ]] || { echo "FAIL: anti-trap should release on 3rd consecutive block"; exit 1; }
+echo "PASS: anti-trap releases after 2 consecutive blocks"
+
+# Case 20: .pilot.json at the git root is honored even when the Stop hook runs
+# from a SUBDIRECTORY (regression: cwd-only lookup silently dropped per-repo
+# runners when the shell was left in e.g. tests/).
+RESET
+echo '{"test_patterns":["custom-suite"]}' > "$BLOCKREPO/.pilot.json"
+mkdir -p "$BLOCKREPO/sub/dir"
+tcustom=$(mk_transcript "Ran custom-suite — All tests passed. Done.")
+OUT=$( cd "$BLOCKREPO/sub/dir" && mk_input "$tcustom" | "$HOOK" 2>&1 )
+[[ "$OUT" != *"verify-gate"* ]] || { echo "FAIL: git-root .pilot.json not honored from subdir, got: $OUT"; exit 1; }
+echo "PASS: .pilot.json resolved from git root when cwd is a subdirectory"
+rm -f "$BLOCKREPO/.pilot.json"
 
 echo "ALL verify-gate tests passed."

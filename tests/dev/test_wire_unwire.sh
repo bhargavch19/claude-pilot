@@ -52,6 +52,10 @@ if ! jq -e '.hooks.PostToolUse | map(.hooks[].command) | map(endswith("/hooks/lo
   echo "FAIL: log-skill-invocation.sh not wired on PostToolUse"
   exit 1
 fi
+if ! jq -e '.hooks.UserPromptSubmit | map(.hooks[].command) | map(endswith("/hooks/route-advisor.sh")) | any' "$TMP/.claude/settings.json" >/dev/null; then
+  echo "FAIL: route-advisor.sh not wired on UserPromptSubmit"
+  exit 1
+fi
 if ! jq -e '.hooks.PostToolUse | map(select(.matcher == "Skill")) | length > 0' "$TMP/.claude/settings.json" >/dev/null; then
   echo "FAIL: log-skill-invocation matcher not set to Skill"
   exit 1
@@ -65,7 +69,7 @@ if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | index("/some/other/hook.
   echo "FAIL: non-pilot hook lost during wire"
   exit 1
 fi
-echo "PASS: wire installs 6 pilot hooks (incl. PostToolUse:Skill telemetry) and preserves foreign hook"
+echo "PASS: wire installs 7 pilot hooks (incl. PostToolUse:Skill telemetry + UserPromptSubmit route-advisor) and preserves foreign hook"
 
 # Wire again — must be idempotent (still exactly one of each).
 HOME="$TMP" bash "$ROOT/dev/wire-hooks.sh" >/dev/null
@@ -86,6 +90,10 @@ if jq -e '..|.command? | strings | endswith("/hooks/plan-gate.sh")' "$TMP/.claud
 fi
 if jq -e '..|.command? | strings | endswith("/hooks/log-skill-invocation.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
   echo "FAIL: log-skill-invocation.sh remained after unwire"
+  exit 1
+fi
+if jq -e '..|.command? | strings | endswith("/hooks/route-advisor.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
+  echo "FAIL: route-advisor.sh remained after unwire"
   exit 1
 fi
 if ! jq -e '..|.command? | strings | . == "/some/other/hook.sh"' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then

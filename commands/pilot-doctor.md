@@ -10,7 +10,7 @@ Run a top-to-bottom pilot health check. Steps:
 2. **Hook scripts executable + present** — run:
    ```bash
    ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}"
-   for h in plan-gate.sh pre-commit.sh verify-gate.sh sessionstart-banner.sh precompact-anchor.sh; do
+   for h in plan-gate.sh pre-commit.sh verify-gate.sh sessionstart-banner.sh precompact-anchor.sh route-advisor.sh log-skill-invocation.sh; do
      if [[ -x "$ROOT/hooks/$h" ]]; then
        echo "✓ $h"
      elif [[ -f "$ROOT/hooks/$h" ]]; then
@@ -33,7 +33,7 @@ Run a top-to-bottom pilot health check. Steps:
      | .hooks[]?
      | "\($k)\t\(.command)"
    ' "$HOME/.claude/settings.json" 2>/dev/null \
-     | grep -E '/hooks/(plan-gate|pre-commit|verify-gate|sessionstart-banner|precompact-anchor)\.sh' \
+     | grep -E '/hooks/(plan-gate|pre-commit|verify-gate|sessionstart-banner|precompact-anchor|route-advisor|log-skill-invocation)\.sh' \
      | while IFS=$'\t' read -r event cmd; do
          path="${cmd%% *}"  # strip any args
          path="${path#\"}"; path="${path%\"}"  # strip quotes if present
@@ -46,7 +46,7 @@ Run a top-to-bottom pilot health check. Steps:
          fi
        done
    # If nothing matched at all:
-   jq -e '.hooks // {} | [.. | objects | .command? // empty] | any(test("/hooks/(plan-gate|pre-commit|verify-gate|sessionstart-banner|precompact-anchor)\\.sh"))' \
+   jq -e '.hooks // {} | [.. | objects | .command? // empty] | any(test("/hooks/(plan-gate|pre-commit|verify-gate|sessionstart-banner|precompact-anchor|route-advisor|log-skill-invocation)\\.sh"))' \
      "$HOME/.claude/settings.json" >/dev/null 2>&1 \
      || echo '(no pilot hooks wired — run dev/wire-hooks.sh or install via marketplace)'
    ```
@@ -87,78 +87,79 @@ Run a top-to-bottom pilot health check. Steps:
    [[ -n "${PILOT_DISABLE_CONTEXT7:-}" ]] && echo "○ PILOT_DISABLE_CONTEXT7 set — docs-lookup disabled"
    ```
 
-4.5. **Skill availability matrix (per registry.md Primary column)** — walks
-   every Primary skill listed in `registry.md` and checks whether it's
-   actually installed. Catches "primary skill missing → silent fallback"
-   routing surprises:
+4.5. **Skill availability matrix (registry.md Primary + Fallback columns)** —
+   walks every Primary skill listed in `registry.md` (full status) and every
+   Fallback reference (surfaced only when it resolves to nothing). Catches both
+   "primary missing → silent fallback" surprises and "fallback ID rotted →
+   dead-end route" drift:
    ```bash
    ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}"
    REG="$ROOT/skills/pilot/registry.md"
    [[ -f "$REG" ]] || { echo "(registry.md not found at $REG)"; }
 
-   # Extract the FIRST backticked identifier per phase-table row (the actual
-   # Primary skill). Avoids capturing MCP tool-name fragments described later
-   # in the same cell.
-   primary_skills=$(awk -F'|' '
+   # Extract referenced skill IDs, tagged by role: the Primary (4th col, first
+   # backtick) and ALL Fallback (5th col) backticked identifiers.
+   refs=$(awk -F'|' '
      /^\| [0-9]|^\| Meta\.|^\| Docs lookup|^\| UI verify|^\| GitHub ops/ {
-       primary = $4
-       if (match(primary, /`[a-zA-Z][a-zA-Z0-9_:-]*`/)) {
-         print substr(primary, RSTART+1, RLENGTH-2)
+       p = $4
+       if (match(p, /`[a-zA-Z][a-zA-Z0-9_:-]*`/)) print "primary\t" substr(p, RSTART+1, RLENGTH-2)
+       fb = $5
+       while (match(fb, /`[a-zA-Z][a-zA-Z0-9_:.-]*`/)) {
+         print "fallback\t" substr(fb, RSTART+1, RLENGTH-2)
+         fb = substr(fb, RSTART+RLENGTH)
        }
      }
    ' "$REG" | sort -u)
 
-   missing_count=0
-   echo "Skill availability (Primary column of registry.md):"
-   while IFS= read -r skill; do
-     [[ -z "$skill" ]] && continue
-
-     # MCPs surface separately in section 4 — skip here.
+   # Resolve a skill id to a source label, or empty if it resolves to nothing.
+   resolve() {
+     local skill="$1" bare
      case "$skill" in
-       context7|playwright|github) continue ;;
+       context7|playwright|github|gh) echo "mcp/cli"; return ;;
+       init|verify|run|simplify|review|security-review|claude-api|loop|schedule|fewer-permission-prompts|update-config|keybindings-help|find-skills|write-a-skill|git-guardrails-claude-code|to-prd|to-issues|deep-research|code-review)
+         echo "built-in"; return ;;
      esac
-
-     # Claude Code ships several skills as built-ins (not on disk). Don't
-     # flag these as missing — pilot-doctor can't see them via file probes.
-     case "$skill" in
-       init|verify|run|simplify|review|security-review|claude-api|loop|schedule|fewer-permission-prompts|update-config|keybindings-help|find-skills|write-a-skill|git-guardrails-claude-code|to-prd|to-issues)
-         printf "  • %-45s (built-in — file probe N/A)\n" "$skill"
-         continue
-         ;;
-     esac
-
-     found=""
-     # 1. User-installed loose skill
-     if [[ -f "$HOME/.claude/skills/$skill/SKILL.md" ]]; then
-       found="user-installed"
-     # 2. Plugin-bundled by exact name
-     elif find "$HOME/.claude/plugins/cache" -maxdepth 6 -type f \
-            -path "*/skills/$skill/SKILL.md" 2>/dev/null | head -1 | grep -q .; then
-       found="plugin-bundled"
-     # 3. Namespaced (e.g., superpowers:writing-plans) — try unprefixed
-     elif [[ "$skill" == *":"* ]]; then
+     if [[ -f "$HOME/.claude/skills/$skill/SKILL.md" ]]; then echo "user-installed"; return; fi
+     if find "$HOME/.claude/plugins/cache" -maxdepth 6 -type f -path "*/skills/$skill/SKILL.md" 2>/dev/null | head -1 | grep -q .; then echo "plugin-bundled"; return; fi
+     if [[ "$skill" == *":"* ]]; then
        bare="${skill#*:}"
-       if find "$HOME/.claude/plugins/cache" -maxdepth 6 -type f \
-              -path "*/skills/$bare/SKILL.md" 2>/dev/null | head -1 | grep -q .; then
-         found="plugin-bundled (namespaced)"
-       fi
+       if find "$HOME/.claude/plugins/cache" -maxdepth 6 -type f -path "*/skills/$bare/SKILL.md" 2>/dev/null | head -1 | grep -q .; then echo "plugin-bundled (namespaced)"; return; fi
      fi
+     echo ""
+   }
 
-     if [[ -n "$found" ]]; then
-       printf "  ✓ %-45s (%s)\n" "$skill" "$found"
-     else
-       printf "  ✗ %-45s (missing — pilot will use fallback if registered)\n" "$skill"
-       missing_count=$((missing_count + 1))
-     fi
-   done <<< "$primary_skills"
+   missing_count=0; drift_count=0
+   echo "Skill availability (registry.md Primary column):"
+   while IFS=$'\t' read -r role skill; do
+     [[ "$role" == "primary" && -n "$skill" ]] || continue
+     src=$(resolve "$skill")
+     case "$src" in
+       mcp/cli) ;;  # MCPs surface in section 4
+       built-in) printf "  • %-45s (built-in — file probe N/A)\n" "$skill" ;;
+       "")       printf "  ✗ %-45s (PRIMARY missing — pilot uses fallback if registered)\n" "$skill"; missing_count=$((missing_count + 1)) ;;
+       *)        printf "  ✓ %-45s (%s)\n" "$skill" "$src" ;;
+     esac
+   done <<< "$refs"
+
+   # Fallback references — only surface ones that resolve to NOTHING (drift).
+   while IFS=$'\t' read -r role skill; do
+     [[ "$role" == "fallback" && -n "$skill" ]] || continue
+     [[ -z "$(resolve "$skill")" ]] || continue
+     printf "  ⚠ %-45s (fallback reference resolves to nothing — registry drift?)\n" "$skill"
+     drift_count=$((drift_count + 1))
+   done <<< "$refs"
 
    if (( missing_count > 0 )); then
      echo
      echo "⚠ $missing_count primary skill(s) missing on disk. Pilot routes via"
      echo "  fallbacks if registered. Install the missing primaries to enable"
      echo "  preferred routing. Common cause for pilot-bundled scaffolds:"
-     echo "  re-run \`bash dev/symlink-pilot.sh\` after a v0.7+ pull (the"
-     echo "  symlink script was updated to include scaffold skills)."
+     echo "  re-run \`bash dev/symlink-pilot.sh\` after a v0.7+ pull."
+   fi
+   if (( drift_count > 0 )); then
+     echo
+     echo "⚠ $drift_count fallback reference(s) resolve to nothing — likely a"
+     echo "  renamed/removed skill. Fix the ID in registry.md or install the skill."
    fi
    ```
 
