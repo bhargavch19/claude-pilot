@@ -41,10 +41,11 @@ jq --arg pd "$PLUGIN_DIR" '
           {"type":"command","command":($pd + "/hooks/pre-commit.sh")}
         ]}
       ] |
-  .hooks.PostToolUse = ((.hooks.PostToolUse // []) | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh"))
+  .hooks.PostToolUse = ((.hooks.PostToolUse // []) | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh") | drop_pilot("autoformat.sh"))
     + [
         {"matcher":"Skill","hooks":[{"type":"command","command":($pd + "/hooks/log-skill-invocation.sh")}]},
-        {"matcher":"Bash","hooks":[{"type":"command","command":($pd + "/hooks/capture-test-run.sh")}]}
+        {"matcher":"Bash","hooks":[{"type":"command","command":($pd + "/hooks/capture-test-run.sh")}]},
+        {"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":($pd + "/hooks/autoformat.sh")}]}
       ] |
   .hooks.Stop = ((.hooks.Stop // []) | drop_pilot("verify-gate.sh"))
     + [{"hooks":[{"type":"command","command":($pd + "/hooks/verify-gate.sh")}]}] |

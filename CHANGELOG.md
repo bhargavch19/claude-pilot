@@ -7,6 +7,12 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 ## [Unreleased]
 
 ### Added
+- **`autoformat.sh`** — a `PostToolUse: Edit|Write|MultiEdit` hook that formats
+  the just-edited file using the formatter the repo **already configures**
+  (prettier/ruff/black/gofmt/rustfmt). No matching config → no-op, so it never
+  imposes a style the repo didn't opt into. Disable per-repo with
+  `.pilot.json {"autoformat":"off"}`; honors bypass markers. Wired across all
+  sync points with stubbed-formatter tests.
 - **Routing eval / measurement harness.** `dev/eval-routes.sh` scores the
   deterministic route-advisor against a golden set
   (`tests/eval/golden_routes.tsv`) — binary 0/1 per case, criteria-based (not

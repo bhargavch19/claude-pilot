@@ -64,6 +64,14 @@ if ! jq -e '.hooks.PostToolUse | map(.hooks[].command) | map(endswith("/hooks/ca
   echo "FAIL: capture-test-run.sh not wired on PostToolUse"
   exit 1
 fi
+if ! jq -e '.hooks.PostToolUse | map(.hooks[].command) | map(endswith("/hooks/autoformat.sh")) | any' "$TMP/.claude/settings.json" >/dev/null; then
+  echo "FAIL: autoformat.sh not wired on PostToolUse"
+  exit 1
+fi
+if ! jq -e '.hooks.PostToolUse | map(select(.matcher == "Edit|Write|MultiEdit" and (.hooks[].command | endswith("/hooks/autoformat.sh")))) | length > 0' "$TMP/.claude/settings.json" >/dev/null; then
+  echo "FAIL: autoformat matcher not set to Edit|Write|MultiEdit"
+  exit 1
+fi
 if ! jq -e '.hooks.PostToolUse | map(select(.matcher == "Bash" and (.hooks[].command | endswith("/hooks/capture-test-run.sh")))) | length > 0' "$TMP/.claude/settings.json" >/dev/null; then
   echo "FAIL: capture-test-run matcher not set to Bash"
   exit 1
@@ -85,7 +93,7 @@ if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | index("/some/other/hook.
   echo "FAIL: non-pilot hook lost during wire"
   exit 1
 fi
-echo "PASS: wire installs 9 pilot hooks (incl. PreToolUse:Bash safety-gate + PostToolUse:Skill telemetry + PostToolUse:Bash capture-test-run + UserPromptSubmit route-advisor) and preserves foreign hook"
+echo "PASS: wire installs 10 pilot hooks (incl. PreToolUse:Bash safety-gate + PostToolUse capture-test-run/autoformat/telemetry + UserPromptSubmit route-advisor) and preserves foreign hook"
 
 # Wire again — must be idempotent (still exactly one of each).
 HOME="$TMP" bash "$ROOT/dev/wire-hooks.sh" >/dev/null
@@ -114,6 +122,10 @@ if jq -e '..|.command? | strings | endswith("/hooks/capture-test-run.sh")' "$TMP
 fi
 if jq -e '..|.command? | strings | endswith("/hooks/safety-gate.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
   echo "FAIL: safety-gate.sh remained after unwire"
+  exit 1
+fi
+if jq -e '..|.command? | strings | endswith("/hooks/autoformat.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
+  echo "FAIL: autoformat.sh remained after unwire"
   exit 1
 fi
 if jq -e '..|.command? | strings | endswith("/hooks/route-advisor.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
