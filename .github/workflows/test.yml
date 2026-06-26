@@ -55,6 +55,20 @@ jobs:
           scandir: 'dev'
           severity: warning
 
+  floor:
+    name: production-quality floor (dogfood)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for the secret scan
+
+      - name: Install jq
+        run: sudo apt-get update -qq && sudo apt-get install -y jq
+
+      - name: Run the executable floor (tests + secret scan + lint)
+        run: bash dev/floor-check.sh
+
   plugin-manifest:
     name: validate plugin.json + marketplace.json
     runs-on: ubuntu-latest

@@ -7,6 +7,13 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 ## [Unreleased]
 
 ### Added
+- **Executable production floor (Phase 9).** `dev/floor-check.sh` runs the
+  applicable floor gates and exits non-zero on any failure — tests, `shellcheck`
+  (when present), and a secret scan (`gitleaks` when present, else a conservative
+  built-in regex). Absent tools are skipped, never failed. Wired into pilot's own
+  CI as a blocking `floor` job (dogfood) and documented alongside
+  `verify_gate:"run"` for per-turn local enforcement. The floor now *executes*,
+  not just ships as templates.
 - **Feedback loop (learning, Phase 8).** `verify-gate.sh` now appends every
   meaningful Stop result to a repo-scoped ledger `~/.cache/pilot/outcomes.jsonl`
   (`pass` / `blocked` / `warn`). `route-advisor.sh` reads it and injects a

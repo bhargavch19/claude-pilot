@@ -53,6 +53,15 @@ Run `/pilot-floor` (or `skills/pilot/playbooks/apply-floor.sh [target-dir]`) to 
 CI workflow + pre-commit config idempotently. It never overwrites an existing file and
 prints the remaining human-confirmed steps. Tune the templates to your stack.
 
+## Running the floor (executable, not just templates)
+
+`dev/floor-check.sh [repo-dir]` actually *executes* the applicable gates and exits
+non-zero if any fail — tests (`bash tests/run.sh` or `.pilot.json test_command`),
+`shellcheck` (when present), and a secret scan (`gitleaks` when present, else a
+conservative built-in regex). Absent tools are skipped, never failed. Pilot dogfoods it
+on its own repo via the `floor` CI job. Locally, `.pilot.json {"verify_gate":"run"}` makes
+the verify-gate run the suite itself on every "done" claim — the floor enforced per-turn.
+
 ## Already activated in pilot itself (local blocking gates)
 
 These ship enabled — no manual flip needed:
