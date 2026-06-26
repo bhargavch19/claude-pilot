@@ -72,22 +72,32 @@ C=" $CMD "
 CB='(^|[;&|(])[[:space:]]*((sudo|doas|xargs|exec|env|time|nohup|nice)[[:space:]]+)*'
 
 # --- 1. rm recursive-force on a dangerous path ----------------------------
-if printf '%s' "$CMD" | grep -Eq "${CB}rm[[:space:]]"; then
-  # recursive flag (…r/R…) AND force flag (…f…), combined or separate.
-  if printf '%s' "$C" | grep -Eq '(^|[[:space:]])-([a-zA-Z]*[rR])|--recursive' \
-     && printf '%s' "$C" | grep -Eq '(^|[[:space:]])-([a-zA-Z]*f)|--force'; then
+# Scope the flag + path checks to each rm invocation's OWN arguments (rm up to
+# the next shell separator). A global scan over the whole command line would
+# false-positive when an unrelated rm and an unrelated path (e.g. a `/` inside a
+# sed/echo elsewhere in the command) merely coexist.
+RM_INVOCS=$(printf '%s\n' "$CMD" | grep -oE "${CB}rm[[:space:]][^;&|)]*" 2>/dev/null || true)
+if [ -n "$RM_INVOCS" ]; then
+  while IFS= read -r inv; do
+    [ -n "$inv" ] || continue
+    # recursive flag (…r/R…) AND force flag (…f…) within THIS invocation.
+    printf '%s' "$inv" | grep -Eq '(^|[[:space:]])-([a-zA-Z]*[rR])|--recursive' || continue
+    printf '%s' "$inv" | grep -Eq '(^|[[:space:]])-([a-zA-Z]*f)|--force' || continue
+    inv=" $inv "
     danger=0
     # root, bare home, home wildcard, and a top-level home child (~/projects,
     # ~/Documents — precious) — but NOT a deeper path (~/app/dist, a build dir).
-    printf '%s' "$C" | grep -Eq '[[:space:]](/|/\*|~|~/|~/\*|~/[^/[:space:]]+|\$HOME|\$\{HOME\}|\$HOME/\*|\$\{HOME\}/\*|\$HOME/[^/[:space:]]+|\$\{HOME\}/[^/[:space:]]+)([[:space:]]|$)' && danger=1
+    printf '%s' "$inv" | grep -Eq '[[:space:]](/|/\*|~|~/|~/\*|~/[^/[:space:]]+|\$HOME|\$\{HOME\}|\$HOME/\*|\$\{HOME\}/\*|\$HOME/[^/[:space:]]+|\$\{HOME\}/[^/[:space:]]+)([[:space:]]|$)' && danger=1
     # absolute system directories (bare, trailing slash, or /*)
-    printf '%s' "$C" | grep -Eq '[[:space:]]/(usr|etc|var|bin|sbin|lib|lib64|opt|boot|dev|sys|proc|root|home|System|Library|Applications|private|Users)(/\*|/?)([[:space:]]|$)' && danger=1
+    printf '%s' "$inv" | grep -Eq '[[:space:]]/(usr|etc|var|bin|sbin|lib|lib64|opt|boot|dev|sys|proc|root|home|System|Library|Applications|private|Users)(/\*|/?)([[:space:]]|$)' && danger=1
     # bare current / parent directory
-    printf '%s' "$C" | grep -Eq '[[:space:]](\.|\.\.)([[:space:]]|$)' && danger=1
-    if [[ "$danger" == "1" ]]; then
+    printf '%s' "$inv" | grep -Eq '[[:space:]](\.|\.\.)([[:space:]]|$)' && danger=1
+    if [ "$danger" = "1" ]; then
       emit "\`rm\` recursive-force on a home/root/system path is irreversible and high-blast-radius."
     fi
-  fi
+  done <<EOF
+$RM_INVOCS
+EOF
 fi
 
 # --- 2. destructive git ---------------------------------------------------

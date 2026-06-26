@@ -37,6 +37,8 @@ rm -rf /usr
 rm -rf /etc/
 rm -rf .
 rm --recursive --force /
+cd /tmp && rm -rf /
+echo start; rm -rf ~
 EOF
 echo "PASS: rm recursive-force on home/root/system blocked"
 
@@ -53,6 +55,9 @@ rm -rf $HOME/repos/myapp/build
 rm file.txt
 rm -r src/old
 rm -rf /var/folders/xx/T/tmp
+rm -rf ./build && echo "see /etc/passwd for users"
+rm -rf node_modules; sed -i 's@/@_@' notes.txt
+rm -rf "$WORK" "$tmp1" "$tmp2"
 EOF
 echo "PASS: targeted rm allowed"
 
