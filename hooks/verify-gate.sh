@@ -91,6 +91,16 @@ mkdir -p "$CACHE_DIR" 2>/dev/null || true
 
 SESSION=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 
+# Repo-scoped outcome ledger (Phase 8 feedback loop): record the result of each
+# meaningful Stop (a "done" claim on changed code) so the router can surface a
+# first-pass-verified rate and nudge when it's poor.
+REPO=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
+record_outcome() {  # $1 = pass | blocked | warn
+  jq -cn --argjson ts "$(date +%s 2>/dev/null || echo 0)" --arg s "${SESSION:-}" \
+    --arg r "$REPO" --arg o "$1" '{ts:$ts, session:$s, repo:$r, result:$o}' \
+    >> "$CACHE_DIR/outcomes.jsonl" 2>/dev/null || true
+}
+
 # A capture clears the gate only when it passed AND belongs to this run:
 # match by session_id when both sides have one, else fall back to a recency
 # window (the Stop payload may omit session_id in older schemas / fixtures).
@@ -113,6 +123,7 @@ fi
 
 if [[ "$CAPTURE_OK" == "1" ]]; then
   : > "$CNT_FILE" 2>/dev/null || true   # real captured pass → reset block counter
+  record_outcome pass
   exit 0
 fi
 
@@ -179,6 +190,7 @@ if [[ "$VG_MODE" == "run" && "$BYPASSED" == "0" ]]; then
       jq -cn --argjson ts "$NOW" --arg s "$SESSION" --arg w "$RUNROOT" --arg c "$TEST_CMD" \
         '{ts:$ts, session_id:$s, cwd:$w, command:$c, ok:true}' > "$FACT" 2>/dev/null || true
       : > "$CNT_FILE" 2>/dev/null || true   # real pass → reset block counter
+      record_outcome pass
       exit 0
     fi
     RUN_NOTE=" (verify_gate:run executed \`$TEST_CMD\` → exit $RC)"
@@ -203,6 +215,7 @@ MSG="$MSG$RUN_NOTE"
 
 if [[ "$MODE" == "block" ]]; then
   echo $((CNT + 1)) > "$CNT_FILE" 2>/dev/null || true
+  record_outcome blocked
   # Stop-hook block: refuse the stop and feed the reason back to the model.
   if command -v jq >/dev/null 2>&1; then
     jq -cn --arg r "$MSG" '{decision:"block", reason:$r}'
@@ -213,5 +226,6 @@ if [[ "$MODE" == "block" ]]; then
 fi
 
 : > "$CNT_FILE" 2>/dev/null || true       # warn path → reset counter
+record_outcome warn
 echo "$MSG" >&2
 exit 0

@@ -106,15 +106,35 @@ elif [ -d "$BASE/.paul" ]; then
   SPINE="PAUL is active (.paul/ present) — use paul:* and close the loop with paul:unify."
 fi
 
-# Nothing deterministic to say → stay silent, let the model route fuzzily.
-[ "$nchain" -eq 0 ] && [ -z "$SPINE" ] && exit 0
-
-MSG="Pilot deterministic route (computed from registry.md, not inferred):"
-if [ "$nchain" -gt 0 ]; then
-  MSG="$MSG you literally named — $chain. Invoke these directly via the Skill tool (literal-name route); sequence as a phase chain if more than one."
+# Feedback loop (Phase 8): if this repo's recent first-pass-verified rate is
+# poor, nudge — verify-gate writes outcomes.jsonl, the router reads it. This is
+# behavioral feedback (a reminder), not auto-rerouting.
+NUDGE=""
+LEDGER="$CACHE_DIR/outcomes.jsonl"
+if [ -f "$LEDGER" ]; then
+  recent=$(grep -F "\"repo\":\"$BASE\"" "$LEDGER" 2>/dev/null | tail -10 || true)
+  total=$(printf '%s\n' "$recent" | grep -c . 2>/dev/null || echo 0)
+  if [ "${total:-0}" -ge 3 ]; then
+    blocked=$(printf '%s' "$recent" | grep -c '"result":"blocked"' 2>/dev/null || echo 0)
+    if [ "${blocked:-0}" -gt 0 ] && [ $((blocked * 2)) -ge "$total" ]; then
+      NUDGE="Feedback: verify-gate blocked $blocked of the last $total \"done\" claims in this repo — run the tests and let the result be captured before claiming done."
+    fi
+  fi
 fi
-[ -n "$SPINE" ] && MSG="$MSG Spine: $SPINE"
-MSG="$MSG Any other (unnamed/ambiguous) intent in the prompt is left to your judgment using registry.md."
+
+# Nothing deterministic to say and no feedback → stay silent.
+[ "$nchain" -eq 0 ] && [ -z "$SPINE" ] && [ -z "$NUDGE" ] && exit 0
+
+MSG=""
+if [ "$nchain" -gt 0 ] || [ -n "$SPINE" ]; then
+  MSG="Pilot deterministic route (computed from registry.md, not inferred):"
+  [ "$nchain" -gt 0 ] && MSG="$MSG you literally named — $chain. Invoke these directly via the Skill tool (literal-name route); sequence as a phase chain if more than one."
+  [ -n "$SPINE" ] && MSG="$MSG Spine: $SPINE"
+  MSG="$MSG Any other (unnamed/ambiguous) intent in the prompt is left to your judgment using registry.md."
+fi
+if [ -n "$NUDGE" ]; then
+  if [ -n "$MSG" ]; then MSG="$MSG $NUDGE"; else MSG="pilot — $NUDGE"; fi
+fi
 
 jq -cn --arg c "$MSG" '{hookSpecificOutput:{hookEventName:"UserPromptSubmit", additionalContext:$c}}'
 exit 0

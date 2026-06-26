@@ -4,6 +4,17 @@ All notable changes to the `pilot` plugin are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [Semantic Versioning](https://semver.org/) once 1.0 ships.
 
+## [Unreleased]
+
+### Added
+- **Feedback loop (learning, Phase 8).** `verify-gate.sh` now appends every
+  meaningful Stop result to a repo-scoped ledger `~/.cache/pilot/outcomes.jsonl`
+  (`pass` / `blocked` / `warn`). `route-advisor.sh` reads it and injects a
+  one-line nudge when this repo's recent first-pass-verified rate is poor
+  (≥ half of the last ≤10 "done" claims blocked, min 3 samples) — behavioral
+  feedback, not auto-rerouting. `/pilot-status` gains an Outcomes section. The
+  measurement stick from Phase 3 now feeds something.
+
 ## [0.8.0] — 2026-06-26
 
 Hardening release. Closes the verify-gate trust hole (real captured test runs),

@@ -29,7 +29,23 @@ The user wants a status snapshot of pilot. Print, in this order:
    [[ -f "$LOG" ]] && tail -10 "$LOG" || echo '(no routing log yet)'
    ```
 
-4. **Prereqs** — run `bash ${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}/dev/check-prereqs.sh`
+4. **Outcomes (first-pass-verified rate)** — the Phase 8 feedback ledger:
+   ```bash
+   L="${XDG_CACHE_HOME:-$HOME/.cache}/pilot/outcomes.jsonl"
+   REPO=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
+   if [[ -f "$L" ]]; then
+     rows=$(grep -F "\"repo\":\"$REPO\"" "$L" | tail -50)
+     n=$(printf '%s\n' "$rows" | grep -c .)
+     p=$(printf '%s' "$rows" | grep -c '"result":"pass"')
+     b=$(printf '%s' "$rows" | grep -c '"result":"blocked"')
+     [[ "$n" -gt 0 ]] && echo "last $n 'done' claims here: $p verified, $b blocked" \
+                      || echo "(no outcomes recorded for this repo yet)"
+   else echo "(no outcome ledger yet)"; fi
+   ```
+   A high blocked count means "done" is being claimed without running tests —
+   the router nudges automatically when it crosses half.
+
+5. **Prereqs** — run `bash ${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}/dev/check-prereqs.sh`
    and quote the bottom-line result.
 
 Be terse. End with one line telling the user how to bypass
