@@ -32,11 +32,13 @@ into `~/.claude/settings.json` using absolute paths.
 | G8 | No dead code, no `console.log` | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on `console.log(` in staged TS/JS/TSX/JSX. |
 | G12 | No `sleep`/timeout patches for flaky tests | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on new `sleep(` or `setTimeout(` in staged files matching `*test*`/`*spec*`. |
 | G14 | Verify before claiming done | `hooks/verify-gate.sh` (+ `hooks/capture-test-run.sh`) | `Stop`, `SubagentStop` (capture: `PostToolUse: Bash`) | **Block** a "done"/"ready"/"passing" claim on changed source unless a real test run was captured this session. Downgrades to warn via bypass markers / `.pilot.json {"verify_gate":"warn"}`; auto-releases after 2 blocks. |
+| G15 | Block destructive commands (safety) | `hooks/safety-gate.sh` | `PreToolUse: Bash` | **Fail-closed block (exit 2)** of `rm` recursive-force on home/root/system paths, destructive git (force push, `reset --hard`, `clean -f`, `branch -D`, `checkout/restore .`), and secret reads/exfil (`.env`, private keys, cloud creds). Safe variants pass (`rm -rf ./build`, `--force-with-lease`, `cat .env.example`). Honors bypass markers; `.pilot.json {"safety_gate":"warn"\|"off"}` downgrades/disables. |
 | —  | Routing telemetry (observability, not a guard) | `hooks/log-skill-invocation.sh` | `PostToolUse: Skill` | Append one line per Skill invocation to `~/.cache/pilot/routing.log` (capped at 500 lines). Surfaced by `/pilot-status`. |
 
-`G15` (dangerous git ops — `push --force`, `reset --hard`, `clean -f`,
-`branch -D`) is not part of pilot itself. Install the dedicated
-`git-guardrails-claude-code` skill if you want this layer.
+`G15` ships with pilot as `hooks/safety-gate.sh` (it folds in the
+`git-guardrails-claude-code` posture and adds `rm -rf` + secret protection).
+The standalone `git-guardrails-claude-code` skill is still compatible if you
+want a second, independent layer.
 
 ## Plan-gate hook (G1) — detailed behavior
 

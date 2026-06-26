@@ -31,12 +31,15 @@ fi
 # still catches it so we don't accumulate duplicates.
 jq --arg pd "$PLUGIN_DIR" '
   def is_pilot($name): .command? // "" | endswith("/hooks/" + $name);
-  def drop_pilot($name): map(select((.hooks[]? | is_pilot($name)) | not));
+  def drop_pilot($name): map(select(([.hooks[]? | is_pilot($name)] | any) | not));
   .hooks = (.hooks // {}) |
-  .hooks.PreToolUse = ((.hooks.PreToolUse // []) | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh"))
+  .hooks.PreToolUse = ((.hooks.PreToolUse // []) | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh") | drop_pilot("safety-gate.sh"))
     + [
         {"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":($pd + "/hooks/plan-gate.sh")}]},
-        {"matcher":"Bash","hooks":[{"type":"command","command":($pd + "/hooks/pre-commit.sh")}]}
+        {"matcher":"Bash","hooks":[
+          {"type":"command","command":($pd + "/hooks/safety-gate.sh")},
+          {"type":"command","command":($pd + "/hooks/pre-commit.sh")}
+        ]}
       ] |
   .hooks.PostToolUse = ((.hooks.PostToolUse // []) | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh"))
     + [

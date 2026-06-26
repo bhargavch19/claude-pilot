@@ -32,6 +32,14 @@ if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | map(endswith("/hooks/pre
   echo "FAIL: pre-commit.sh not wired"
   exit 1
 fi
+if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | map(endswith("/hooks/safety-gate.sh")) | any' "$TMP/.claude/settings.json" >/dev/null; then
+  echo "FAIL: safety-gate.sh not wired"
+  exit 1
+fi
+if ! jq -e '.hooks.PreToolUse | map(select(.matcher == "Bash" and (.hooks[].command | endswith("/hooks/safety-gate.sh")))) | length > 0' "$TMP/.claude/settings.json" >/dev/null; then
+  echo "FAIL: safety-gate matcher not set to Bash"
+  exit 1
+fi
 if ! jq -e '.hooks.Stop | map(.hooks[].command) | map(endswith("/hooks/verify-gate.sh")) | any' "$TMP/.claude/settings.json" >/dev/null; then
   echo "FAIL: verify-gate.sh not wired"
   exit 1
@@ -77,7 +85,7 @@ if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | index("/some/other/hook.
   echo "FAIL: non-pilot hook lost during wire"
   exit 1
 fi
-echo "PASS: wire installs 8 pilot hooks (incl. PostToolUse:Skill telemetry + PostToolUse:Bash capture-test-run + UserPromptSubmit route-advisor) and preserves foreign hook"
+echo "PASS: wire installs 9 pilot hooks (incl. PreToolUse:Bash safety-gate + PostToolUse:Skill telemetry + PostToolUse:Bash capture-test-run + UserPromptSubmit route-advisor) and preserves foreign hook"
 
 # Wire again — must be idempotent (still exactly one of each).
 HOME="$TMP" bash "$ROOT/dev/wire-hooks.sh" >/dev/null
@@ -102,6 +110,10 @@ if jq -e '..|.command? | strings | endswith("/hooks/log-skill-invocation.sh")' "
 fi
 if jq -e '..|.command? | strings | endswith("/hooks/capture-test-run.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
   echo "FAIL: capture-test-run.sh remained after unwire"
+  exit 1
+fi
+if jq -e '..|.command? | strings | endswith("/hooks/safety-gate.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
+  echo "FAIL: safety-gate.sh remained after unwire"
   exit 1
 fi
 if jq -e '..|.command? | strings | endswith("/hooks/route-advisor.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then

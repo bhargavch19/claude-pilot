@@ -7,6 +7,15 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 ## [Unreleased]
 
 ### Added
+- **`safety-gate.sh` (G15)** — a fail-closed `PreToolUse: Bash` hook that
+  **blocks (exit 2)** destructive commands with catastrophic blast radius:
+  `rm` recursive-force on `$HOME`/root/system paths, destructive git (force
+  push, `reset --hard`, `clean -f`, `branch -D`, `checkout/restore .` — folding
+  in the `git-guardrails-claude-code` posture), and secret reads/copies/exfil
+  (`.env`, private keys, cloud credentials). Safe, targeted variants pass
+  (`rm -rf ./build`, `git push --force-with-lease`, `cat .env.example`). Honors
+  pilot bypass markers; `.pilot.json {"safety_gate":"warn"|"off"}` downgrades or
+  disables. Wired across all sync points with full tests.
 - **`capture-test-run.sh`** — a `PostToolUse: Bash` hook that records the
   *actual* result of test-runner commands (built-in set + per-repo
   `.pilot.json test_patterns`) to `~/.cache/pilot/last-test-run` as JSON

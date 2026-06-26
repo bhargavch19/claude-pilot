@@ -21,11 +21,11 @@ cp "$SETTINGS" "$SETTINGS.bak.$(date +%s)"
 jq --arg pd "$PLUGIN_DIR" '
   # Match by basename only so stale-path entries get cleaned up too.
   def is_pilot($name): .command? // "" | endswith("/hooks/" + $name);
-  def drop_pilot($name): map(select((.hooks[]? | is_pilot($name)) | not));
+  def drop_pilot($name): map(select(([.hooks[]? | is_pilot($name)] | any) | not));
 
   if .hooks == null then . else
     .hooks |=
-      ( (.PreToolUse   // [] | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh")) as $p
+      ( (.PreToolUse   // [] | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh") | drop_pilot("safety-gate.sh")) as $p
       | (.PostToolUse  // [] | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh")) as $po
       | (.Stop         // [] | drop_pilot("verify-gate.sh"))                             as $s
       | (.SubagentStop // [] | drop_pilot("verify-gate.sh"))                             as $sa
