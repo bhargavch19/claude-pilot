@@ -26,7 +26,7 @@ into `~/.claude/settings.json` using absolute paths.
 
 | # | Rule | Hook script | Trigger | Action |
 |---|---|---|---|---|
-| G1 | Plan before coding (>20 LOC) | `hooks/plan-gate.sh` | `PreToolUse: Edit\|Write` | Block when `new_string`/`content` > 20 lines and no plan found for the current branch. |
+| G1 | Plan before coding (>20 LOC) | `hooks/plan-gate.sh` | `PreToolUse: Edit\|Write\|MultiEdit\|NotebookEdit` **and** `Bash` | Block when a write exceeds 20 lines and no plan exists for the branch — for the edit tools (by `new_string`/`content`) **and** for code written through Bash (`cat >`/`tee`/heredoc to a source file), so shell-authored files can't slip past. |
 | G3 | Atomic commits, conventional messages | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on missing `feat:`/`fix:`/`chore:`/... prefix or WIP message. Skipped for HEREDOC / `-F file` / editor-mode commits. |
 | G7 | TS strict, no `any` without comment | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on `: any` in staged TS/TSX without `// any: <reason>` on same line. |
 | G8 | No dead code, no `console.log` | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on `console.log(` in staged TS/JS/TSX/JSX. |

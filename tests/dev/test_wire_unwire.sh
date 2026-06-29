@@ -107,14 +107,16 @@ if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | index("/some/other/hook.
 fi
 echo "PASS: wire installs 13 pilot hooks (incl. pretooluse-heartbeat, safety-gate, capture-test-run, autoformat, integrity-check, memory-surface, route-advisor) and preserves foreign hook"
 
-# Wire again — must be idempotent (still exactly one of each).
+# Wire again — must be idempotent. plan-gate is wired in TWO matchers
+# (Edit|Write|MultiEdit|NotebookEdit and Bash), so expect exactly 2 — and the
+# re-wire must not grow that.
 HOME="$TMP" bash "$ROOT/dev/wire-hooks.sh" >/dev/null
 plan_count=$(jq '[.hooks.PreToolUse[].hooks[] | select(.command | endswith("/hooks/plan-gate.sh"))] | length' "$TMP/.claude/settings.json")
-if [[ "$plan_count" != "1" ]]; then
-  echo "FAIL: re-wiring duplicated plan-gate.sh (got $plan_count entries)"
+if [[ "$plan_count" != "2" ]]; then
+  echo "FAIL: re-wiring changed plan-gate.sh count (expected 2: Edit + Bash, got $plan_count)"
   exit 1
 fi
-echo "PASS: wire is idempotent"
+echo "PASS: wire is idempotent (plan-gate in Edit + Bash matchers)"
 
 # Unwire.
 HOME="$TMP" bash "$ROOT/dev/unwire-hooks.sh" >/dev/null

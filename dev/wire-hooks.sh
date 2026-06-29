@@ -39,6 +39,7 @@ jq --arg pd "$PLUGIN_DIR" '
         {"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":($pd + "/hooks/plan-gate.sh")}]},
         {"matcher":"Bash","hooks":[
           {"type":"command","command":($pd + "/hooks/safety-gate.sh")},
+          {"type":"command","command":($pd + "/hooks/plan-gate.sh")},
           {"type":"command","command":($pd + "/hooks/pre-commit.sh")}
         ]}
       ] |

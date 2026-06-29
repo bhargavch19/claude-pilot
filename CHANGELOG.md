@@ -4,6 +4,16 @@ All notable changes to the `pilot` plugin are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [Semantic Versioning](https://semver.org/) once 1.0 ships.
 
+## [Unreleased]
+
+### Changed
+- **plan-gate now also covers Bash code writes (Phase 11).** A large source file
+  written through the shell (`cat > file`, `tee`, heredoc) previously slipped
+  past plan-gate, which only matched the Edit/Write tools — surfaced while
+  dogfooding a calculator build. plan-gate now also runs on `PreToolUse: Bash`
+  and blocks a >20-line write to a code file when no plan exists. Non-code/small
+  writes, reads, pipelines, and `>&2`/`/dev/null` redirects pass untouched.
+
 ## [0.9.0] — 2026-06-26
 
 Agentic-OS release. Adds the OS primitives on top of the 0.8 hardening: a

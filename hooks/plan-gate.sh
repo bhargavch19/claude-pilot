@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # G1 enforcement: block large file-mutating tool calls unless a plan exists.
 # Reads JSON tool invocation from stdin (Claude Code PreToolUse format).
-# Handles Edit, Write, MultiEdit, NotebookEdit.
+# Handles Edit, Write, MultiEdit, NotebookEdit — AND large code writes done
+# through Bash (`cat > file`, `tee file`, heredocs), which would otherwise slip
+# past a tool-only gate.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -25,6 +27,18 @@ case "$TOOL" in
     ;;
   NotebookEdit)
     NEW_STRING=$(echo "$INPUT" | jq -r '.tool_input.new_source // .tool_input.content // ""' 2>/dev/null || echo "")
+    ;;
+  Bash)
+    # Only gate Bash that WRITES A CODE FILE via redirect/tee/heredoc. Other
+    # Bash (reads, pipelines, git) is none of plan-gate's business → exit fast.
+    # The command-line length is the size proxy: a big heredoc/printf inlines
+    # its body, so a >20-line command writing a source file is a large change.
+    CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
+    code_ext='(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|java|kt|swift|m|c|cc|cpp|h|hpp|cs|php|ex|exs|scala|clj|sh|sql|vue|svelte)'
+    if ! printf '%s' "$CMD" | grep -Eq "(>>?|[[:space:]]tee[[:space:]])[^|&;<]*\.${code_ext}([[:space:]]|\"|'|$)"; then
+      exit 0
+    fi
+    NEW_STRING="$CMD"
     ;;
   *)
     exit 0
