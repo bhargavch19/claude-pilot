@@ -6,6 +6,56 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 
 ## [Unreleased]
 
+### Fixed
+- **plan-gate and pre-commit now actually block (exit 1 → exit 2).** The Claude
+  Code PreToolUse protocol only blocks a tool call on exit 2 (or a deny
+  decision); any other non-zero exit shows stderr but lets the call proceed.
+  Both gates exited 1, so G1 (plan-before-code) and G3/G7/G8/G12 (commit
+  quality) were decorative. `safety-gate.sh` already used exit 2 and was
+  unaffected. All gate tests updated to assert exit 2.
+- **MCP tool-name drift.** context7 v2 renamed `get-library-docs` →
+  `query-docs`; the github server's review/comment tools are
+  `get_pull_request_reviews` / `get_pull_request_comments` /
+  `add_issue_comment`. SKILL.md, registry.md, and prereqs.md now name the
+  tools the pinned servers actually expose.
+- **route-advisor no longer orders invocation on a bare mention.** The injected
+  directive told the model to "invoke directly" whenever a skill name appeared
+  in the prompt — including descriptive mentions ("...should be graphified").
+  It now flags the literal hit but tells the model to ignore it unless the
+  prompt is actually requesting that work.
+- Doc drift: workflow.md said verify-gate "warns" (it blocks);
+  guardrails.md documented the old exit-1 behavior.
+
+### Added
+- **Requirements playbook (spec-kit mechanics, MIT-ported).**
+  `playbooks/requirements.md` — clarify scan (Frame), stable `AC-001` IDs +
+  task/test linkage in the ledger (Plan), analyze coverage-matrix gate before
+  the first Build edit, evidence-only check-off (Verify). Wired into the
+  registry Frame/Plan rows and workflow.md.
+- **github MCP → official hosted endpoint.** Replaced the deprecated
+  `@modelcontextprotocol/server-github` npm server with GitHub's maintained
+  remote (`https://api.githubcopilot.com/mcp`, HTTP + `${GITHUB_TOKEN}`
+  header). `dev/wire-mcps.sh`/`unwire-mcps.sh` now handle remote entries via
+  `claude mcp add-json` (match-on-URL for safe unwire). Note: the hosted
+  endpoint needs `GITHUB_TOKEN` for reads too; no token → `gh` CLI fallback.
+- **Review-phase fallback: official `code-review` plugin** added to the
+  registry (prefer maintained review prompts when installed).
+- **tdd-guard documented as a recommended companion** in prereqs.md (blocks
+  red-green-refactor violations during Build; complements the verify-gate).
+- Removed the over-broad `"run.sh"` entry from this repo's `.pilot.json`
+  `test_patterns` — it let any command *mentioning* `run.sh` (e.g. a grep of
+  hook sources) be captured as a passing test run and clear G14.
+- **AC ledger — requirement traceability (opt-in).** The Plan phase writes
+  acceptance criteria as `- [ ]` checkboxes to `.pilot/acceptance.md`;
+  `verify-gate.sh` now blocks a "done" claim while any box is unchecked, even
+  with a passing test capture. No ledger file → no AC gating. Same
+  bypass/warn/anti-trap rails as the test-run check. New tests in
+  `tests/hooks/test_verify_gate_ac_ledger.sh`.
+- **Graphify at close-loop.** Phase 9 (Capture) now includes running
+  `graphify` on the cycle's changed files (delta map) so new code lands in
+  the knowledge graph for future debugging — Phase 0.9 maps inputs, Phase 9
+  maps outputs. Registry, workflow.md, and the new-feature playbook updated.
+
 ### Changed
 - **plan-gate now also covers Bash code writes (Phase 11).** A large source file
   written through the shell (`cat > file`, `tee`, heredoc) previously slipped

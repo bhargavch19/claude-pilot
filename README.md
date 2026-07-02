@@ -8,9 +8,11 @@ stays extensible through a one-line registry edit.
 - **Repository structure:** Claude Code single-plugin marketplace
   (`.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` at root).
 - **Skill source:** `skills/pilot/` — `SKILL.md` (routing playbook) + `registry.md` (single-source-of-truth phase table) + `guardrails.md` (CLAUDE.md → hook mapping) + `playbooks/`.
-- **Hooks:** `hooks/{plan-gate,pre-commit,verify-gate,sessionstart-banner,precompact-anchor,log-skill-invocation,route-advisor}.sh` — wired across PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, PreCompact, UserPromptSubmit.
+- **Hooks:** `hooks/{plan-gate,pre-commit,safety-gate,pretooluse-heartbeat,verify-gate,capture-test-run,autoformat,sessionstart-banner,integrity-check,memory-surface,precompact-anchor,log-skill-invocation,route-advisor}.sh` — wired across PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, PreCompact, UserPromptSubmit.
 - **MCPs (bundled):** `context7` (docs) · `playwright` (UI verify) · `github` (review / ship).
 - **Bundled skills (this plugin's own):** `migration-safety`, `pre-deploy-checklist`, `post-deploy-monitor` (all under `skills/`). Currently scaffolds — see `docs/superpowers/plans/2026-05-20-production-hardening.md` for completion queue.
+- **Production-quality floor:** `skills/pilot/playbooks/production-floor.md` + `templates/` (CI workflow + pre-commit config) + `apply-floor.sh` — the blocking gates (tests, types, lint, SAST, secret scan, dep audit) the Bootstrap phase wires into new projects.
+- **Routing spine:** GSD is the default for multi-session/multi-file work; PAUL is opt-in (literal `/paul:*` or an existing `.paul/`); graphify is the sole codebase mapper. See `registry.md` → "One spine".
 - **Slash commands:** `commands/pilot-{status,off,off-rails,back-on,bypass,doctor,trace}.md`.
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for what shipped in each version and
@@ -46,13 +48,13 @@ background for on-demand tools.
 |---|---|---|---|
 | `context7` | `@2.2.5` | ~3MB npx fetch | Docs lookup (any) |
 | `playwright` | `@0.0.75` | ~3MB npx + ~300MB Chromium on first navigate | Verify (UI) |
-| `github` | `@2025.4.8` | ~10MB npx fetch | Review · Ship |
+| `github` | hosted (`api.githubcopilot.com/mcp`) | none — remote HTTP | Review · Ship |
 
 **API keys + opt-outs** — export in your shell before launching Claude Code:
 
 ```bash
 export CONTEXT7_API_KEY="…"      # optional — raises context7 rate limits
-export GITHUB_TOKEN="…"          # required for any github MCP write op
+export GITHUB_TOKEN="…"          # required for the hosted github MCP (reads too)
 
 # Per-server opt-outs (set to 1 to skip that MCP's routing):
 export PILOT_DISABLE_CONTEXT7=1
@@ -96,7 +98,7 @@ rm ~/.claude/skills/pilot                              # only if you symlinked
 1. **Literal-name shortcut.** If your prompt literally names a skill or MCP (`context7`, `playwright`, `tdd`, `frontend-design`, `improve-codebase-architecture`, etc.), pilot routes there immediately — skipping keyword-based phase detection. Multi-mention prompts produce a sequenced phase chain. See "How to invoke pilot" below.
 2. **Phase routing.** When no literal name is present, pilot reads `skills/pilot/registry.md`, scans the user message for trigger keywords, inspects project state (`.planning/`, `git status`, `git log`), and invokes the right underlying skill via the Skill tool.
    - **Deterministic route advisor (`route-advisor.sh`, UserPromptSubmit).** Before the model sees the prompt, this hook computes — in code, from `registry.md` — the *unambiguous* part of the route and injects it: distinctive literal skill names (hyphen/colon/digit names, e.g. `tdd`, `improve-codebase-architecture`, `gsd-*`, `paul:*`) and project-state spine (`.planning/`→GSD, `.paul/`→PAUL). Common-English skill names (`review`, `run`, `verify`) and all fuzzy intent are deliberately left to the model — the hook only hard-routes what code can decide correctly, so routing is deterministic where it can be and model-judged where it must be.
-3. **Quality gates.** Six hooks enforce CLAUDE.md-aligned rules — see `skills/pilot/guardrails.md` for the full mapping.
+3. **Quality gates.** `plan-gate`, `pre-commit`, and the **blocking** `verify-gate` enforce CLAUDE.md-aligned rules — see `skills/pilot/guardrails.md`. `verify-gate` no longer trusts transcript prose: a companion `capture-test-run` hook (PostToolUse/Bash) records the *actual* result of test-runner commands to a fact file, and the gate clears a "done" claim only when a real captured pass exists for this session — closing the hole where a model could write "tests passed" without running anything. Two more hooks add deterministic routing (`route-advisor`, UserPromptSubmit) and settings self-healing (`dedupe-settings-hooks`, SessionStart).
 4. **Bundled MCPs.** `context7` (docs lookup), `playwright` (UI verify), and `github` (review / ship) start automatically and are surfaced to the Skill tool as `mcp__<name>__*` tools.
 5. **Stay extensible.** Adding a new skill is a one-line append to `registry.md`. Adding a new guardrail is a hook script plus a test under `tests/hooks/`.
 
@@ -200,7 +202,7 @@ Honest list of edges that bite — surfaced via cross-setup audit, not theoretic
 | **Web app** | Claude Code's web surface (claude.ai/code) doesn't fire local hooks. | Hooks only enforce in CLI/desktop sessions. Skill-level routing still works (model-driven). |
 | **Pre-commit on amend** | The `pre-commit.sh` hook only inspects the current `-m`/`--message`. Interactive-rebase amends of mid-history commits bypass the conventional-commit check. | Run `bash tests/run.sh` locally before pushing if your branch contains amended-via-rebase commits. |
 | **Plan-gate freshness** | Plan-existence check is permissive: ANY plan file matching `docs/superpowers/plans/*.md` OR `.planning/*/PLAN.md` satisfies the gate, even if the plan is 6+ months old. | Treat as a soft guard, not a contract. Use `/pilot-bypass --no-plan` if a stale plan is blocking a small unrelated edit. |
-| **PreCompact token cost** | Re-anchor injection consumes ~10 lines post-compact. Linear in the number of phases in the registry. | Mitigated in v0.7.0 — registry list collapsed to a pointer ("17 phases, see registry.md"). Token cost ~constant as registry grows. |
+| **PreCompact token cost** | Re-anchor injection consumes ~10 lines post-compact. Linear in the number of phases in the registry. | Mitigated in v0.7.0 — registry list collapsed to a pointer ("21 phases, see registry.md"). Token cost ~constant as registry grows. |
 | **Concurrent sessions** | Pre-v0.7.0, `routing.log` interleaved entries from concurrent Claude Code sessions. | v0.7.0 added a `session=<8char>` field per entry; `/pilot-trace` scopes to the current session_id. Older entries fall back to last `skill=pilot` boundary. |
 | **Built-in skill detection** | `/pilot-doctor` can't file-probe Claude Code built-in skills (`init`, `verify`, `run`, `simplify`, `review`, `security-review`). They're loaded by the Claude Code binary, not stored on disk. | Doctor marks them as `• built-in — file probe N/A` instead of `✗`. |
 | **Wire-hooks dedup** | `wire-hooks.sh` dedups pilot entries by hook-script basename, not by absolute path. Two pilot installs in different repos would collide. | Don't run two pilot installs concurrently. Use `bash dev/unwire-hooks.sh` before switching install paths. |
@@ -215,17 +217,27 @@ Per-repo config for `verify-gate.sh` via `.pilot.json` at the repo root
 ```json
 {
   "test_patterns": ["rake test", "my-custom-runner"],
-  "verify_gate": "warn"
+  "verify_gate": "run",
+  "test_command": "bash tests/run.sh",
+  "test_timeout": 120
 }
 ```
 
 `test_patterns` are regex strings, unioned with pilot's built-in runner list
-(pytest, bun test, vitest, nx test, make test, ...). `verify_gate` controls
-enforcement: by default the gate **blocks** a "done"/"ready" claim that has no
-test evidence on a turn that changed source; set `"verify_gate": "warn"` to
-downgrade to a non-blocking warning for that repo. The gate also honors the
-session bypass markers (`/pilot-off`, `/pilot-off-rails`) and auto-releases
-after two consecutive blocks so it can never trap a session.
+(pytest, bun test, vitest, nx test, make test, ...) when `capture-test-run.sh`
+decides whether a Bash command is a test run. `verify_gate` controls
+enforcement: by default the gate **blocks** a "done"/"ready" claim on a turn
+that changed source unless a real test run was captured this session. Modes:
+
+- `"warn"` — downgrade to a non-blocking warning for that repo.
+- `"run"` — the gate executes `test_command` itself (with `test_timeout`
+  seconds, default 120) and uses the **real exit code** — un-fakeable. It runs
+  lazily (only when a "done" claim would otherwise block) and records a passing
+  run as a capture so it runs at most once per session. Requires `test_command`.
+
+The gate also honors the session bypass markers (`/pilot-off`,
+`/pilot-off-rails` — which also skip run mode) and auto-releases after two
+consecutive blocks so it can never trap a session.
 
 ## Tests
 
