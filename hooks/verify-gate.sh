@@ -121,7 +121,25 @@ if [[ -f "$FACT" ]] && jq empty "$FACT" 2>/dev/null; then
   fi
 fi
 
-if [[ "$CAPTURE_OK" == "1" ]]; then
+# AC ledger (requirement traceability): the Plan phase writes
+# .pilot/acceptance.md with one `- [ ]` checkbox per acceptance criterion.
+# A "done" claim while boxes are unchecked is a missed requirement — even
+# with a passing test capture — so it enforces alongside the test-run check.
+# No ledger file → no AC gating (fully opt-in per repo/branch).
+AC_FILE="$REPO/.pilot/acceptance.md"
+AC_OPEN=0
+AC_ITEMS=""
+if [[ -f "$AC_FILE" ]]; then
+  AC_OPEN=$(grep -cE '^[[:space:]]*[-*][[:space:]]\[ \]' "$AC_FILE" 2>/dev/null || true)
+  [[ "$AC_OPEN" =~ ^[0-9]+$ ]] || AC_OPEN=0
+  if (( AC_OPEN > 0 )); then
+    AC_ITEMS=$(grep -E '^[[:space:]]*[-*][[:space:]]\[ \]' "$AC_FILE" 2>/dev/null \
+      | head -3 | sed -E 's/^[[:space:]]*[-*][[:space:]]\[ \][[:space:]]*//' \
+      | tr -d '"' | paste -sd ';' - | cut -c1-180 || true)
+  fi
+fi
+
+if [[ "$CAPTURE_OK" == "1" && "$AC_OPEN" -eq 0 ]]; then
   : > "$CNT_FILE" 2>/dev/null || true   # real captured pass → reset block counter
   record_outcome pass
   exit 0
@@ -174,7 +192,7 @@ RUN_NOTE=""
 # and at most once per session (a pass is recorded as a capture below).
 #   .pilot.json: { "verify_gate":"run",
 #                  "test_command":"bash tests/run.sh", "test_timeout":120 }
-if [[ "$VG_MODE" == "run" && "$BYPASSED" == "0" ]]; then
+if [[ "$VG_MODE" == "run" && "$BYPASSED" == "0" && "$CAPTURE_OK" == "0" ]]; then
   TEST_CMD=$(jq -r '.test_command // empty' "$PILOT_JSON" 2>/dev/null || true)
   if [[ -n "$TEST_CMD" ]]; then
     TIMEOUT=$(jq -r '.test_timeout // 120' "$PILOT_JSON" 2>/dev/null || echo 120)
@@ -189,11 +207,15 @@ if [[ "$VG_MODE" == "run" && "$BYPASSED" == "0" ]]; then
       NOW=$(date +%s 2>/dev/null || echo 0)
       jq -cn --argjson ts "$NOW" --arg s "$SESSION" --arg w "$RUNROOT" --arg c "$TEST_CMD" \
         '{ts:$ts, session_id:$s, cwd:$w, command:$c, ok:true}' > "$FACT" 2>/dev/null || true
-      : > "$CNT_FILE" 2>/dev/null || true   # real pass → reset block counter
-      record_outcome pass
-      exit 0
+      if [[ "$AC_OPEN" -eq 0 ]]; then
+        : > "$CNT_FILE" 2>/dev/null || true   # real pass → reset block counter
+        record_outcome pass
+        exit 0
+      fi
+      CAPTURE_OK=1   # tests are proven; open ACs still enforce below
+    else
+      RUN_NOTE=" (verify_gate:run executed \`$TEST_CMD\` → exit $RC)"
     fi
-    RUN_NOTE=" (verify_gate:run executed \`$TEST_CMD\` → exit $RC)"
   else
     RUN_NOTE=" (verify_gate:run set but no test_command in .pilot.json — cannot self-verify)"
   fi
@@ -210,7 +232,12 @@ if [[ "$MODE" == "block" && "$CNT" -ge 2 ]]; then
   MODE="warn"
 fi
 
-MSG='verify-gate: G14 — "done"/"ready" claimed and source changed, but no REAL test run was captured this session (transcript prose does not count). Actually run the project tests so their result is captured, then stop. Bypass: type "pilot off", or set {"verify_gate":"warn"} in .pilot.json.'
+if [[ "$CAPTURE_OK" == "1" && "$AC_OPEN" -gt 0 ]]; then
+  MSG="verify-gate: AC — \"done\" claimed but $AC_OPEN acceptance criteria are still unchecked in .pilot/acceptance.md (open: $AC_ITEMS). Deliver each one and check it off, or explicitly mark it out of scope in the ledger, then stop. Bypass: type \"pilot off\", or set {\"verify_gate\":\"warn\"} in .pilot.json."
+else
+  MSG='verify-gate: G14 — "done"/"ready" claimed and source changed, but no REAL test run was captured this session (transcript prose does not count). Actually run the project tests so their result is captured, then stop. Bypass: type "pilot off", or set {"verify_gate":"warn"} in .pilot.json.'
+  [[ "$AC_OPEN" -gt 0 ]] && MSG="$MSG Also: $AC_OPEN acceptance criteria remain unchecked in .pilot/acceptance.md."
+fi
 MSG="$MSG$RUN_NOTE"
 
 if [[ "$MODE" == "block" ]]; then
