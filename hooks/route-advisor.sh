@@ -128,7 +128,7 @@ fi
 MSG=""
 if [ "$nchain" -gt 0 ] || [ -n "$SPINE" ]; then
   MSG="Pilot deterministic route (computed from registry.md, not inferred):"
-  [ "$nchain" -gt 0 ] && MSG="$MSG you literally named — $chain. Invoke these directly via the Skill tool (literal-name route); sequence as a phase chain if more than one."
+  [ "$nchain" -gt 0 ] && MSG="$MSG literal skill name(s) present — $chain. If the prompt is ASKING for that work, invoke them via the Skill tool (sequence as a phase chain if more than one). If a name is only mentioned descriptively (talked about, not requested), ignore that hit and route on actual intent."
   [ -n "$SPINE" ] && MSG="$MSG Spine: $SPINE"
   MSG="$MSG Any other (unnamed/ambiguous) intent in the prompt is left to your judgment using registry.md."
 fi
