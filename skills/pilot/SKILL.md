@@ -123,7 +123,8 @@ Use it **proactively** — don't wait for the user to ask:
 
 Two MCP tools:
 - `mcp__context7__resolve-library-id` — find the canonical library id.
-- `mcp__context7__get-library-docs` — fetch focused excerpts for that id.
+- `mcp__context7__query-docs` — fetch focused excerpts for that id
+  (context7 v2 renamed `get-library-docs` → `query-docs`).
 
 When you invoke context7, mention it once ("Pulling current React 19 server
 component docs via context7…") so the user knows where the info came from.
@@ -163,25 +164,25 @@ verification and fall back to test-runner output only.
 
 ## github — bundled GitHub-API MCP
 
-Pilot ships with the official `@modelcontextprotocol/server-github` MCP.
+Pilot connects to GitHub's **official hosted MCP endpoint**
+(`https://api.githubcopilot.com/mcp` — the deprecated
+`@modelcontextprotocol/server-github` npm package was retired in 2025).
 Use it in **Review and Ship phases** when you need real GitHub state
 instead of inferring from local git: PR review status, CI check results,
 merge eligibility, issue/PR threads, branch protection.
 
-Common tools:
-- `mcp__github__get_pull_request` — full PR object.
-- `mcp__github__list_pull_request_reviews` / `create_pull_request_review`.
-- `mcp__github__list_issue_comments` / `create_issue_comment`.
-- `mcp__github__search_issues` / `search_code`.
-- `mcp__github__get_pull_request_status` — combined CI check status.
+Tool names vary across server releases — do NOT assume a name from
+memory; check the `mcp__github__*` tools actually available in-session
+(PR read/review, issue comment, CI status, and code/issue search are
+always covered in some form).
 
 Workflow for Ship: read PR review state → confirm checks green →
 post final summary comment → merge (with user confirmation).
 
-**Auth:** writes require `GITHUB_TOKEN` exported in the shell before
-launching Claude Code. Reads on public repos work without one. If a
-write call returns 401/403, surface the token-missing hint and ask
-the user to export one before retrying.
+**Auth:** the hosted endpoint requires `GITHUB_TOKEN` (a PAT) exported
+in the shell before launching Claude Code — for reads too, unlike the
+old npm server. If the server fails to connect or returns 401/403,
+surface the token hint and fall back to the `gh` CLI via Bash.
 
 **Opt-out:** if `PILOT_DISABLE_GITHUB` is set, skip GitHub MCP calls
 and fall back to `gh` CLI invocations via Bash.
@@ -214,6 +215,7 @@ and fall back to `gh` CLI invocations via Bash.
 
 For multi-step phase combinations, see:
 - `playbooks/new-feature.md` — Frame → Plan → Build → Verify → Review → Ship
+- `playbooks/requirements.md` — clarify → trace (AC ledger) → analyze → verify; runs inside Frame/Plan on every code feature
 - `playbooks/bug-fix.md` — Debug → Verify
 - `playbooks/refactor.md` — Refactor → Verify → Review
 - `playbooks/exploration.md` — Frame (non-code) → Spike

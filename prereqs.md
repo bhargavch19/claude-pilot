@@ -25,9 +25,9 @@ automatically on plugin install.
 
 | Server | Version | Purpose |
 |---|---|---|
-| `context7` (`@upstash/context7-mcp`) | pinned `@2.2.5` | Up-to-date library docs (`resolve-library-id` + `get-library-docs` tools). |
+| `context7` (`@upstash/context7-mcp`) | pinned `@2.2.5` | Up-to-date library docs (`resolve-library-id` + `query-docs` tools). |
 | `playwright` (`@playwright/mcp`) | pinned `@0.0.75` | Browser-driving tools (navigate, snapshot, click, evaluate, screenshot) for real UI verification in the Verify phase. First-run downloads its own Chromium (~300MB). |
-| `github` (`@modelcontextprotocol/server-github`) | pinned `@2025.4.8` | GitHub REST as MCP tools (PRs, reviews, CI status, issues). Used in Review/Ship phases. |
+| `github` (hosted) | `https://api.githubcopilot.com/mcp` (official GitHub endpoint) | GitHub REST as MCP tools (PRs, reviews, CI status, issues). Used in Review/Ship phases. Requires `GITHUB_TOKEN` — for reads too. |
 
 **Env vars** for bundled MCP servers are read from Claude Code's process
 environment (no per-plugin env block). To pass an API key, export it in
@@ -35,7 +35,7 @@ your shell **before** launching Claude Code:
 
 ```bash
 export CONTEXT7_API_KEY="…"   # optional — free tier works without
-export GITHUB_TOKEN="…"        # required for any github MCP write op
+export GITHUB_TOKEN="…"        # required for the hosted github MCP (reads too)
 # then start claude code as usual
 ```
 
@@ -51,6 +51,12 @@ matching MCP routing in pilot's SKILL.md guidance:
 **Alternative to playwright:** `chrome-devtools-mcp` is lighter (no
 Chromium download, attaches to your existing Chrome). Drop the playwright
 entry in `plugin.json` and add a chrome-devtools one if you prefer.
+
+## Recommended companion hooks (not routed — enforcement)
+
+| Tool | What it adds on top of pilot |
+|---|---|
+| [`tdd-guard`](https://github.com/nizos/tdd-guard) | PreToolUse hook that blocks Write/Edit violating red-green-refactor, judged against framework-native test reporters (vitest/jest/pytest/go/rust/…). Complements pilot: tdd-guard enforces TDD *during* Build; pilot's verify-gate enforces evidence *at* "done". Its reporter files are also more robust than `capture-test-run.sh`'s command-pattern matching — a future pilot version may read them directly. Install per its README, then keep pilot's `--skip-tdd` unused. |
 
 ## Skills / plugins
 

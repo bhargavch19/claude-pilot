@@ -31,7 +31,7 @@ into `~/.claude/settings.json` using absolute paths.
 | G7 | TS strict, no `any` without comment | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on `: any` in staged TS/TSX without `// any: <reason>` on same line. |
 | G8 | No dead code, no `console.log` | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on `console.log(` in staged TS/JS/TSX/JSX. |
 | G12 | No `sleep`/timeout patches for flaky tests | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on new `sleep(` or `setTimeout(` in staged files matching `*test*`/`*spec*`. |
-| G14 | Verify before claiming done | `hooks/verify-gate.sh` (+ `hooks/capture-test-run.sh`) | `Stop`, `SubagentStop` (capture: `PostToolUse: Bash`) | **Block** a "done"/"ready"/"passing" claim on changed source unless a real test run was captured this session. Downgrades to warn via bypass markers / `.pilot.json {"verify_gate":"warn"}`; auto-releases after 2 blocks. |
+| G14 | Verify before claiming done | `hooks/verify-gate.sh` (+ `hooks/capture-test-run.sh`) | `Stop`, `SubagentStop` (capture: `PostToolUse: Bash`) | **Block** a "done"/"ready"/"passing" claim on changed source unless a real test run was captured this session AND `.pilot/acceptance.md` (when present) has no unchecked `- [ ]` items. Downgrades to warn via bypass markers / `.pilot.json {"verify_gate":"warn"}`; auto-releases after 2 blocks. |
 | G15 | Block destructive commands (safety) | `hooks/safety-gate.sh` | `PreToolUse: Bash` | **Fail-closed block (exit 2)** of `rm` recursive-force on home/root/system paths, destructive git (force push, `reset --hard`, `clean -f`, `branch -D`, `checkout/restore .`), and secret reads/exfil (`.env`, private keys, cloud creds). Safe variants pass (`rm -rf ./build`, `--force-with-lease`, `cat .env.example`). Honors bypass markers; `.pilot.json {"safety_gate":"warn"\|"off"}` downgrades/disables. |
 | —  | Auto-format edited files (hygiene, not a guard) | `hooks/autoformat.sh` | `PostToolUse: Edit\|Write\|MultiEdit` | Format the edited file with the formatter the repo **already configures** (prettier/ruff/black/gofmt/rustfmt). No config → no-op. Disable with `.pilot.json {"autoformat":"off"}`; honors bypass markers. |
 | —  | Project-hook integrity warning (security) | `hooks/integrity-check.sh` | `SessionStart` | Warn when the opened project ships its own hooks in `.claude/settings*.json` (the SessionStart-hook RCE vector). Lists each foreign hook command to vet; pilot's own global hooks are not flagged. Informational, never blocks. |
@@ -61,7 +61,8 @@ want a second, independent layer.
    - any `docs/superpowers/plans/*.md` in the working tree, OR
    - any `.planning/*/PLAN.md` or `SPEC.md` in the working tree, OR
    - any of the above modified in commits since `git merge-base HEAD <upstream>`.
-4. Otherwise block (exit 1) with a G1 message naming both plan locations.
+4. Otherwise block (exit 2 — the PreToolUse blocking convention; stderr is
+   fed back to the model) with a G1 message naming both plan locations.
 
 ## Pre-commit hook (G3/G7/G8/G12) — detailed behavior
 
@@ -75,7 +76,8 @@ want a second, independent layer.
    HEREDOC, `-F <file>`, and editor-mode commits skip G3 only.
 4. G3: block on WIP or missing conventional prefix.
 5. G7/G8/G12: scan staged files (`git diff --cached`).
-6. Exit 1 on violation; otherwise exit 0.
+6. Exit 2 on violation (blocks the call; stderr fed back to the model);
+   otherwise exit 0.
 
 ## Verify-gate hook (G14) — detailed behavior
 
@@ -105,6 +107,12 @@ want a second, independent layer.
    only when it would otherwise block), bypass-aware (won't run when
    bypassed), timeout-guarded, and records a pass as a capture so it runs at
    most once per session.
+8. **AC ledger (requirement traceability)** — when `.pilot/acceptance.md`
+   exists at the repo root, any unchecked `- [ ]` item blocks a "done" claim
+   even with a passing test capture. The Plan phase writes one checkbox per
+   acceptance criterion; Verify checks them off with evidence. No ledger
+   file → no AC gating (opt-in per repo). Same bypass/warn/anti-trap rails
+   as the test-run check.
 
 ## Bypass mechanisms
 
