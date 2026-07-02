@@ -38,7 +38,7 @@ set +e
 echo "$input" | "$HOOK" >/dev/null 2>&1
 rc=$?
 set -e
-if [[ "$rc" -ne 1 ]]; then
+if [[ "$rc" -ne 2 ]]; then
   echo "FAIL: baseline (no bypass) should still block; got $rc"
   exit 1
 fi
@@ -69,7 +69,7 @@ set +e
 echo "$input" | "$HOOK" >/dev/null 2>&1
 rc=$?
 set -e
-if [[ "$rc" -ne 1 ]]; then
+if [[ "$rc" -ne 2 ]]; then
   echo "FAIL: back-on should re-engage gate; got $rc"
   exit 1
 fi
@@ -82,7 +82,7 @@ set +e
 echo "$input" | "$HOOK" >/dev/null 2>&1
 rc=$?
 set -e
-if [[ "$rc" -ne 1 ]]; then
+if [[ "$rc" -ne 2 ]]; then
   echo "FAIL: random msgs should not bypass; got $rc"
   exit 1
 fi
@@ -97,7 +97,7 @@ set +e
 echo "$input" | "$HOOK" >/dev/null 2>&1
 rc=$?
 set -e
-if [[ "$rc" -ne 1 ]]; then
+if [[ "$rc" -ne 2 ]]; then
   echo "FAIL: glued-prefix 'shutdownpilot off rails' should not bypass; got $rc"
   exit 1
 fi

@@ -23,9 +23,9 @@ SMALL_JS=$'cat > tiny.js <<EOF\nconst a = 1;\nEOF'
 # A big NON-code write (docs).
 BIG_MD=$(printf 'cat > notes.md <<EOF\n%s\nEOF\n' "$big_body")
 
-# Case 1: big code write, no plan → BLOCK (exit 1) with G1.
+# Case 1: big code write, no plan → BLOCK (exit 2) with G1.
 RESET
-[[ "$(rc_of "$BIG_JS")" == "1" ]] || { echo "FAIL: big Bash code write should block without a plan"; exit 1; }
+[[ "$(rc_of "$BIG_JS")" == "2" ]] || { echo "FAIL: big Bash code write should block without a plan"; exit 1; }
 out=$(mk "$BIG_JS" | "$HOOK" 2>&1 || true)
 echo "$out" | grep -q "G1" || { echo "FAIL: expected G1 message, got: $out"; exit 1; }
 echo "PASS: large code write via Bash heredoc is gated"

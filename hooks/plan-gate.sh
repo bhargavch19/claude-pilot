@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # G1 enforcement: block large file-mutating tool calls unless a plan exists.
+# Blocks with exit 2 — the Claude Code PreToolUse blocking convention (stderr
+# is fed back to the model); any other non-zero exit would NOT stop the call.
 # Reads JSON tool invocation from stdin (Claude Code PreToolUse format).
 # Handles Edit, Write, MultiEdit, NotebookEdit — AND large code writes done
 # through Bash (`cat > file`, `tee file`, heredocs), which would otherwise slip
@@ -137,4 +139,4 @@ Run the writing-plans skill (superpowers) or gsd-plan-phase, save the plan,
 then retry.
 Bypass: say "pilot --no-plan" or "pilot off" (use sparingly).
 EOF
-exit 1
+exit 2

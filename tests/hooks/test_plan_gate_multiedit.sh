@@ -34,7 +34,7 @@ set +e
 err=$(echo "$input" | "$HOOK" 2>&1 >/dev/null)
 rc=$?
 set -e
-[[ "$rc" -eq 1 ]] || { echo "FAIL: MultiEdit big total should block; got $rc"; exit 1; }
+[[ "$rc" -eq 2 ]] || { echo "FAIL: MultiEdit big total should block; got $rc"; exit 1; }
 echo "$err" | grep -q 'plan-gate: G1' || { echo "FAIL: missing G1 message"; exit 1; }
 echo "PASS: MultiEdit big total blocked with G1"
 
@@ -63,7 +63,7 @@ set +e
 echo "$input" | "$HOOK" >/dev/null 2>&1
 rc=$?
 set -e
-[[ "$rc" -eq 1 ]] || { echo "FAIL: NotebookEdit big should block; got $rc"; exit 1; }
+[[ "$rc" -eq 2 ]] || { echo "FAIL: NotebookEdit big should block; got $rc"; exit 1; }
 echo "PASS: NotebookEdit big blocked"
 
 # Unknown tool → ignored.

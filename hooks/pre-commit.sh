@@ -4,7 +4,8 @@
 #
 # Runs as a Claude Code PreToolUse hook on Bash. Activates when the
 # command invokes `git commit` (any flags). Blocks the tool call on
-# violation (exit 1). For commits whose message can't be parsed from
+# violation (exit 2 — the PreToolUse blocking convention; other non-zero
+# exits do NOT block). For commits whose message can't be parsed from
 # the command line (HEREDOC, -F, plain `git commit` opening editor),
 # G3 is skipped; G7/G8/G12 still enforced against the staged diff.
 set -euo pipefail
@@ -89,12 +90,12 @@ if [[ -n "$MSG" ]]; then
   conv_re='^(feat|fix|chore|docs|refactor|test|style|perf|build|ci|revert)(\([^)]+\))?: '
   if [[ "$MSG" =~ $wip_re ]] || [[ "$MSG" =~ [Ww][Ii][Pp]$ ]]; then
     echo "pre-commit: G3 — WIP commits forbidden. Squash or rewrite." >&2
-    exit 1
+    exit 2
   fi
   if ! [[ "$MSG" =~ $conv_re ]]; then
     echo "pre-commit: G3 — commit message needs a conventional prefix (feat:, fix:, chore:, docs:, refactor:, test:, style:, perf:, build:, ci:, revert:)." >&2
     echo "  got: ${MSG:0:80}" >&2
-    exit 1
+    exit 2
   fi
 fi
 
@@ -108,7 +109,7 @@ while IFS= read -r f; do
     *.ts|*.tsx|*.js|*.jsx)
       if git show ":$f" 2>/dev/null | grep -nE '(^|[^.])console\.log\(' >/dev/null; then
         echo "pre-commit: G8 — console.log in $f. Remove or use a logger." >&2
-        exit 1
+        exit 2
       fi
       ;;
   esac
@@ -123,7 +124,7 @@ while IFS= read -r f; do
         if [[ "$line" =~ :\ *any([^a-zA-Z]|$) ]] && ! [[ "$line" =~ //.*any: ]]; then
           echo "pre-commit: G7 — bare \`: any\` in $f. Add explanatory \`// any: <reason>\` comment." >&2
           echo "  $line" >&2
-          exit 1
+          exit 2
         fi
       done < <(git show ":$f" 2>/dev/null || true)
       ;;
@@ -137,7 +138,7 @@ while IFS= read -r f; do
     *test*|*spec*|*.test.*|*.spec.*)
       if git show ":$f" 2>/dev/null | grep -nE '(^|[^a-zA-Z_])(sleep|setTimeout)\(' >/dev/null; then
         echo "pre-commit: G12 — sleep/setTimeout in test $f. Fix root cause, don't paper over flakes." >&2
-        exit 1
+        exit 2
       fi
       ;;
   esac
