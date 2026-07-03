@@ -44,21 +44,11 @@ if [[ -f "$BYPASS_DIR/bypass-session" ]]; then
   exit 0
 fi
 
-# Bypass: respect "pilot off" / "pilot off rails" in last user msg.
-TRANSCRIPT=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
-if [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
-  USER_MSGS=$(jq -r 'select(.type=="user") | (.message.content // .message | tostring)' "$TRANSCRIPT" 2>/dev/null | tail -30 || true)
-  LAST_USER=$(printf '%s' "$USER_MSGS" | tail -1)
-  if printf '%s' "$LAST_USER" | grep -qiE '(^|[[:space:]]|[[:punct:]])pilot[[:space:]]+off([[:space:]]+rails)?([[:space:]]|$|[[:punct:]])'; then
-    echo "pre-commit: bypassed (pilot off in last user message)." >&2
-    exit 0
-  fi
-  STATE=$(printf '%s' "$USER_MSGS" | grep -iE '(^|[[:space:]]|[[:punct:]])pilot[[:space:]]+(off[[:space:]]+rails|back[[:space:]]+on)' | tail -1 || true)
-  if [[ "$STATE" =~ off[[:space:]]+rails ]]; then
-    echo "pre-commit: bypassed (pilot off rails active)." >&2
-    exit 0
-  fi
-fi
+# NO transcript phrase-sniffing — markers only (see plan-gate.sh for why:
+# skill/tool content lands as user-type transcript entries, so any doc that
+# mentions "pilot off rails" — including pilot's own SKILL.md — would
+# permanently poison a phrase grep). Typed phrases route via the model to
+# /pilot-off | /pilot-off-rails, which write the markers checked above.
 
 # Extract commit message from -m / --message= when reliably parsable.
 # Skip G3 when the message comes from HEREDOC, -F file, editor, or when
@@ -99,49 +89,93 @@ if [[ -n "$MSG" ]]; then
   fi
 fi
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
-[[ -n "$STAGED" ]] || exit 0
-
-# G8: no console.log in staged TS/JS/TSX/JSX.
-while IFS= read -r f; do
-  [[ -z "$f" ]] && continue
+# --- Content gates (G7/G8/G12) -------------------------------------------
+# TOCTOU: this hook runs BEFORE the command, so for `git add X && git commit`
+# the index is still empty at check time. Two file sets are scanned:
+#   STAGED  — already in the index (plain `git commit` flow), read via git show
+#   PENDING — about to be staged by THIS command (`git add` in the same
+#             command line, or `git commit -a`), read from the working tree
+scan_content() { # $1 = path, $2 = content (full file text)
+  local f="$1" content="$2" line
   case "$f" in
     *.ts|*.tsx|*.js|*.jsx)
-      if git show ":$f" 2>/dev/null | grep -nE '(^|[^.])console\.log\(' >/dev/null; then
+      if printf '%s' "$content" | grep -qE '(^|[^.])console\.log\('; then
         echo "pre-commit: G8 — console.log in $f. Remove or use a logger." >&2
-        exit 2
+        return 1
       fi
       ;;
   esac
-done <<< "$STAGED"
-
-# G7: `: any` requires `// any:` comment on same line.
-while IFS= read -r f; do
-  [[ -z "$f" ]] && continue
   case "$f" in
     *.ts|*.tsx)
       while IFS= read -r line; do
         if [[ "$line" =~ :\ *any([^a-zA-Z]|$) ]] && ! [[ "$line" =~ //.*any: ]]; then
           echo "pre-commit: G7 — bare \`: any\` in $f. Add explanatory \`// any: <reason>\` comment." >&2
           echo "  $line" >&2
-          exit 2
+          return 1
         fi
-      done < <(git show ":$f" 2>/dev/null || true)
+      done <<< "$content"
       ;;
   esac
-done <<< "$STAGED"
-
-# G12: no sleep/setTimeout in staged test files.
-while IFS= read -r f; do
-  [[ -z "$f" ]] && continue
   case "$f" in
     *test*|*spec*|*.test.*|*.spec.*)
-      if git show ":$f" 2>/dev/null | grep -nE '(^|[^a-zA-Z_])(sleep|setTimeout)\(' >/dev/null; then
+      if printf '%s' "$content" | grep -qE '(^|[^a-zA-Z_])(sleep|setTimeout)\('; then
         echo "pre-commit: G12 — sleep/setTimeout in test $f. Fix root cause, don't paper over flakes." >&2
-        exit 2
+        return 1
       fi
       ;;
   esac
+  return 0
+}
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
+
+# PENDING: files this same command line is about to stage.
+PENDING=""
+PENDING_ALL=0
+# `git add <pathspecs>` segments in the command (up to a separator).
+while IFS= read -r seg; do
+  [[ -n "$seg" ]] || continue
+  seg=$(printf '%s' "$seg" | sed -E 's/^git[[:space:]]+add[[:space:]]+//')
+  for tok in $seg; do
+    case "$tok" in
+      -A|--all|-u|--update) PENDING_ALL=1 ;;
+      -*) ;;                                   # other flags — ignore
+      *)
+        if [[ -d "$tok" || "$tok" == "." ]]; then
+          # Directory / dot pathspec: expand to its changed+untracked files.
+          PENDING+=$(git status --porcelain 2>/dev/null \
+            | awk -v p="$tok" '{f=$NF} p=="." || index(f, p)==1 {print f}')$'\n'
+        else
+          PENDING+="$tok"$'\n'
+        fi
+        ;;
+    esac
+  done
+done < <(printf '%s' "$CMD" | grep -oE 'git[[:space:]]+add[[:space:]]+[^;&|]*' || true)
+# `git commit -a` / `--all`: stages every modified tracked file. Flag scan
+# runs on the command with quoted strings stripped, so "-a" inside a commit
+# message can't false-positive.
+FLAGSTR=$(printf '%s' "$CMD" | sed -E "s/\"[^\"]*\"//g; s/'[^']*'//g")
+if printf '%s' "$FLAGSTR" | grep -qE 'git[[:space:]]+commit[^;&|]*[[:space:]](-[a-zA-Z]*a[a-zA-Z]*|--all)([[:space:]]|$)'; then
+  PENDING_ALL=1
+fi
+if [[ "$PENDING_ALL" == "1" ]]; then
+  PENDING+=$(git status --porcelain 2>/dev/null | awk '{print $NF}')$'\n'
+fi
+
+[[ -n "$STAGED" || -n "${PENDING//[$'\n' ]/}" ]] || exit 0
+
+while IFS= read -r f; do
+  [[ -z "$f" ]] && continue
+  scan_content "$f" "$(git show ":$f" 2>/dev/null || true)" || exit 2
 done <<< "$STAGED"
+
+seen=$'\n'
+while IFS= read -r f; do
+  [[ -z "$f" || ! -f "$f" ]] && continue
+  case "$seen" in *$'\n'"$f"$'\n'*) continue ;; esac
+  seen+="$f"$'\n'
+  scan_content "$f" "$(cat "$f" 2>/dev/null || true)" || exit 2
+done <<< "$PENDING"
 
 exit 0
