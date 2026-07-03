@@ -7,6 +7,32 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 ## [Unreleased]
 
 ### Fixed
+- **pre-commit TOCTOU: `git add X && git commit` skipped G7/G8/G12 (found
+  live in e2e dogfooding — a console.log landed in a real commit).** The
+  hook runs before the command, so the index was empty at check time and
+  the staged-content scan matched nothing. It now also scans the files the
+  command is about to stage — `git add` pathspecs (incl. `.`/-A/-u
+  expansion via git status) and `git commit -a` — from the working tree,
+  with quoted-string stripping so "-a" in a commit message isn't read as
+  the flag. The production floor's real `.git/hooks/pre-commit` (commit-
+  time, sees the final index) remains the structural backstop. New tests:
+  `tests/hooks/test_pre_commit_toctou.sh`.
+- **Gates no longer sniff the transcript for bypass phrases (self-poisoning
+  fix, found in e2e dogfooding).** Skill launches land in the transcript as
+  user-type entries, and pilot's own SKILL.md contains the literal phrase
+  "pilot off rails" — so invoking the pilot skill silently disarmed
+  plan-gate (and pre-commit) for the rest of the session. Marker files
+  written by the slash commands are now the only bypass mechanism; when the
+  user types a phrase, the conductor invokes the matching slash command.
+  Regression test: a SKILL.md-style doc in the transcript must not bypass.
+- **plan-gate now accepts `.pilot/acceptance.md` as a plan artifact.** The
+  AC-first invariant mandates the ledger at Plan time, but the gate only
+  recognized superpowers/GSD plan paths — following the registry's own flow
+  would have been blocked. Gate and invariant now agree.
+- **Phase 9 (Capture): graphify promoted to the Primary column.** It lived
+  only in resolution-rule prose while Primary said "claude-mem auto-hook,
+  not skill-invokable" — which reads as "nothing to do", and the e2e run
+  skipped it. The conductor's action is now explicit.
 - **plan-gate and pre-commit now actually block (exit 1 → exit 2).** The Claude
   Code PreToolUse protocol only blocks a tool call on exit 2 (or a deny
   decision); any other non-zero exit shows stderr but lets the call proceed.

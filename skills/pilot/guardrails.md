@@ -49,17 +49,16 @@ want a second, independent layer.
 `hooks/plan-gate.sh` runs on `PreToolUse: Edit|Write`:
 
 1. Skip when `Edit`/`Write` content is ≤ 20 lines.
-2. **Bypass check** — short-circuit if any of:
+2. **Bypass check** — markers only (no transcript grep — see Bypass
+   mechanisms below); short-circuit if any of:
    - marker `${XDG_CACHE_HOME:-~/.cache}/pilot/bypass-once`
      (consumed after this gate fire), or
    - marker `bypass-no-plan-once` (consumed), or
-   - marker `bypass-session` (persists until `/pilot-back-on`), or
-   - last user message contains `pilot off`, `pilot off rails`, or
-     `pilot --no-plan`, or
-   - most-recent off-rails toggle is "off" (not yet flipped back on).
+   - marker `bypass-session` (persists until `/pilot-back-on`).
 3. **Plan existence** — allow if a plan file is present for this branch:
    - any `docs/superpowers/plans/*.md` in the working tree, OR
    - any `.planning/*/PLAN.md` or `SPEC.md` in the working tree, OR
+   - `.pilot/acceptance.md` (the AC ledger is a plan artifact), OR
    - any of the above modified in commits since `git merge-base HEAD <upstream>`.
 4. Otherwise block (exit 2 — the PreToolUse blocking convention; stderr is
    fed back to the model) with a G1 message naming both plan locations.
@@ -70,12 +69,17 @@ want a second, independent layer.
 
 1. Acts only when the command invokes `git commit` (matches with or without
    `-m`, `--amend`, etc.).
-2. Bypass check — same one-shot/session marker logic as plan-gate, plus
-   `pilot off` / `pilot off rails` transcript phrases.
+2. Bypass check — same one-shot/session marker logic as plan-gate
+   (markers only; no transcript phrases).
 3. Parses commit message from `-m "..."` / `-m '...'` / `--message="..."`.
    HEREDOC, `-F <file>`, and editor-mode commits skip G3 only.
 4. G3: block on WIP or missing conventional prefix.
-5. G7/G8/G12: scan staged files (`git diff --cached`).
+5. G7/G8/G12: scan **two** file sets — already-staged files
+   (`git diff --cached`, read from the index) AND files the same command
+   line is about to stage (`git add …` segments, `git add .`/-A/-u
+   expansion, `git commit -a`), read from the working tree. The second set
+   closes the TOCTOU hole: PreToolUse runs before the command, so
+   `git add X && git commit` used to be checked against an empty index.
 6. Exit 2 on violation (blocks the call; stderr fed back to the model);
    otherwise exit 0.
 
@@ -123,8 +127,8 @@ want a second, independent layer.
 | `/pilot-bypass --no-precommit` | Next pre-commit fire only | Writes `bypass-precommit-once`. Pre-commit consumes this before `bypass-once`. |
 | `/pilot-off-rails` | Until `/pilot-back-on` | Writes `bypass-session`; hooks honor without consuming. |
 | `/pilot-back-on` | Re-engage | Removes every marker. |
-| `pilot off` in user msg | Next gate fire | Transcript-grep fallback. |
-| `pilot off rails` in user msg | Until "pilot back on" | Transcript-grep with state tracking. |
+| `pilot off` in user msg | Next gate fire | The conductor invokes `/pilot-off` on the user's behalf (hooks never grep the transcript — a doc mentioning the phrase must not disarm a gate). |
+| `pilot off rails` in user msg | Until "pilot back on" | The conductor invokes `/pilot-off-rails`; `/pilot-back-on` re-engages. |
 
 Per-gate markers are preferred over the shared `bypass-once` when both
 are armed — so a `--no-precommit` doesn't accidentally swallow a
