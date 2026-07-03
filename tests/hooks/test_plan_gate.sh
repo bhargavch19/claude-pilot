@@ -49,4 +49,12 @@ touch "$TMP/.planning/phase-1/SPEC.md"
 echo "PASS: large change allowed with recent GSD SPEC.md"
 rm -rf "$TMP/.planning"
 
+# Case 6: .pilot/acceptance.md (AC ledger) also satisfies the gate — the
+# AC-first invariant mandates it at Plan time, so it IS a plan artifact.
+mkdir -p "$TMP/.pilot"
+echo "- [ ] AC-001: something" > "$TMP/.pilot/acceptance.md"
+( cd "$TMP" && echo "$input" | "$HOOK" >/dev/null )
+echo "PASS: large change allowed with AC ledger present"
+rm -rf "$TMP/.pilot"
+
 echo "ALL plan-gate tests passed."

@@ -68,22 +68,13 @@ if [[ -f "$BYPASS_DIR/bypass-session" ]]; then
   exit 0
 fi
 
-# Bypass: respect "pilot off", "pilot off rails", "pilot --no-plan" in the
-# last user message, or an active "off rails" state.
-TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
-if [[ -n "$TRANSCRIPT" && -f "$TRANSCRIPT" ]]; then
-  USER_MSGS=$(jq -r 'select(.type=="user") | (.message.content // .message | tostring)' "$TRANSCRIPT" 2>/dev/null | tail -30 || true)
-  LAST_USER=$(printf '%s' "$USER_MSGS" | tail -1)
-  if printf '%s' "$LAST_USER" | grep -qiE '(^|[[:space:]]|[[:punct:]])pilot[[:space:]]+(off([[:space:]]+rails)?|--no-plan)([[:space:]]|$|[[:punct:]])'; then
-    echo "plan-gate: bypassed (pilot off / --no-plan in last user message)." >&2
-    exit 0
-  fi
-  STATE=$(printf '%s' "$USER_MSGS" | grep -iE '(^|[[:space:]]|[[:punct:]])pilot[[:space:]]+(off[[:space:]]+rails|back[[:space:]]+on)' | tail -1 || true)
-  if [[ "$STATE" =~ off[[:space:]]+rails ]]; then
-    echo "plan-gate: bypassed (pilot off rails active)." >&2
-    exit 0
-  fi
-fi
+# NO transcript phrase-sniffing. Markers are the only bypass mechanism:
+# skill launches and tool results land in the transcript as user-type
+# entries, so any document that *mentions* "pilot off rails" (including
+# pilot's own SKILL.md, injected on invocation) would permanently poison a
+# phrase grep — a mention is not a command. When the user actually types
+# the phrase, the model routes it to /pilot-off | /pilot-off-rails, which
+# write the markers checked above.
 
 # Plan-existence check (git-based):
 #   1. Any plan file present in the working tree (committed or staged or
@@ -91,11 +82,13 @@ fi
 #   2. Any plan file modified in the current branch's commits since
 #      merge-base with its upstream / main / master.
 # Fallback when outside git: simple working-tree existence check.
-plan_paths_re='^(docs/superpowers/plans/.*\.md|\.planning/.*/(PLAN|SPEC)\.md)$'
+# .pilot/acceptance.md counts: the AC-first invariant mandates it at Plan
+# time, so the gate and the invariant agree on what a plan artifact is.
+plan_paths_re='^(docs/superpowers/plans/.*\.md|\.planning/.*/(PLAN|SPEC)\.md|\.pilot/acceptance\.md)$'
 
 plan_in_worktree() {
   local f
-  for d in docs/superpowers/plans .planning; do
+  for d in docs/superpowers/plans .planning .pilot; do
     [[ -d "$d" ]] || continue
     f=$(find "$d" -type f -name '*.md' 2>/dev/null \
       | grep -E "$plan_paths_re" | head -1 || true)
@@ -134,6 +127,7 @@ Proposed change: $LINE_COUNT lines (>20 threshold).
 No plan found for this branch in:
   - docs/superpowers/plans/*.md   (working tree or branch commits)
   - .planning/**/PLAN.md|SPEC.md  (working tree or branch commits)
+  - .pilot/acceptance.md          (AC ledger — see playbooks/requirements.md)
 
 Run the writing-plans skill (superpowers) or gsd-plan-phase, save the plan,
 then retry.

@@ -223,7 +223,7 @@ For multi-step phase combinations, see:
 
 ## Bypass syntax
 
-Two equivalent forms. **Natural language** is matched by the gate hooks directly from your last message; the **slash commands** write marker files in `${XDG_CACHE_HOME:-~/.cache}/pilot/` that the same hooks consume. Use whichever you prefer.
+Marker files in `${XDG_CACHE_HOME:-~/.cache}/pilot/` are the **only** mechanism the gate hooks check — the hooks never grep the transcript for phrases (a mention of a phrase in any document would poison such a grep; this table itself contains the phrases). The **slash commands** write the markers. When the user *types* a natural-language form, you (the conductor) invoke the matching slash command for them — the phrase is a request to you, not a signal to the hooks.
 
 | Intent | Natural language | Slash command | Enforced by |
 |---|---|---|---|
