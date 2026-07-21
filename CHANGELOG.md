@@ -4,7 +4,68 @@ All notable changes to the `pilot` plugin are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [Semantic Versioning](https://semver.org/) once 1.0 ships.
 
-## [Unreleased]
+## [0.10.0] - 2026-07-20
+
+### Added
+- **Autopilot mode — requirement in, shipped change out.** One requirement →
+  pilot conducts the entire loop hands-off (frame → phased plan → build/TDD →
+  verify → bounded fix loop → review → ship → capture), pausing only at two
+  checkpoints: plan approval and ship approval.
+  - `skills/pilot/autopilot.md` — driver spec + `.pilot/cycle.json` state
+    contract (repo-scoped, survives session death; `continue` resumes).
+  - `hooks/autopilot-gate.sh` (G16, Stop only) — blocks ending the turn while
+    a cycle is mid-phase; checkpoint/terminal states allow the stop. Honors
+    bypass markers, `.pilot.json {"autopilot":{"gate":"warn"|"off"}}`, and
+    anti-traps after 3 consecutive same-state blocks. Composes with
+    verify-gate (complementary reasons, independent counters); does not touch
+    verify-gate internals — no overlap with the hardening plan.
+  - `/pilot-autopilot <requirement> | off | (status)` command; cycle block in
+    `/pilot-status`; `autopilot` literal token in route-advisor SAFE_SINGLE +
+    `Meta. Autopilot` registry row; G16 in guardrails.md.
+  - Fix loop bounded by `max_fix_rounds` (default 3) → `status=halted` + halt
+    report, never an infinite loop.
+  - Tests: `tests/hooks/test_autopilot_gate.sh` (13 cases),
+    `tests/skills/test_cycle_schema.sh` (5 cases), route-advisor autopilot
+    cases, 3 new golden routes (32/32 eval).
+- **playwright-cli as the primary UI-verify vehicle.** The `UI verify` phase
+  now routes to `playwright-cli` (Microsoft's token-efficient CLI for coding
+  agents — terse Bash commands instead of MCP tool schemas + a11y trees) with
+  the bundled `playwright` MCP as fallback. Registry row + SKILL.md verify
+  flow + prereqs install instructions (`npm i -g @playwright/cli`,
+  `playwright-cli install --skills`); autopilot's verify phase uses the same
+  preference order.
+
+- **Witnessed checkpoint approvals (G16 integrity).** New
+  `hooks/approval-capture.sh` (UserPromptSubmit) records the user's actual
+  approving prompt for a waiting checkpoint as a marker the model cannot
+  synthesize; `autopilot-gate.sh` flags checkpoint flags lacking a witness as
+  self-approval and sends the conductor back to re-ask. `/pilot-approve`
+  command as the explicit form. Conservative prompt-initial matching only —
+  mid-sentence/negated approval words never count. Opt-out:
+  `{"autopilot":{"approval_witness":"off"}}`.
+- **Marketplace drift detection.** `skills-lock.json` marketplace entries pin
+  `plugin_id` + version/SHA; `bootstrap-team.sh --check` resolves installed
+  versions from `~/.claude/plugins/installed_plugins.json` and reports drift.
+  Git-entry check no longer misreports non-git manual installs as missing.
+- **`docs/team-onboarding.md`** — 10-minute mental model for new teammates.
+- **Team readiness.** Branch-scoped autopilot cycles
+  (`.pilot/cycles/<branch-slug>.json`, legacy path honored); `.pilot.json`
+  `profile` block (style/strictness) replacing the hardcoded single-user
+  persona in SKILL.md/registry/workflow; opt-in repo-scoped shared outcome
+  ledger (`team.shared_outcomes`) + `dev/outcome-report.sh` (first-pass-verified
+  rate, per-user); `dev/bootstrap-team.sh` + `dev/skills-lock.json` pinned
+  constellation install; `docs/ab-method.md` A/B measurement protocol
+  (hardening-plan Phase 3 method). CI: fixed the mcpServers manifest check to
+  accept hosted (`type:"http"`) servers — it failed on the github MCP entry.
+  Site (`web/index.html`) refreshed to v0.10: autopilot, G15/G16 rows, team
+  pair, new commands, playwright-cli preference.
+- **Vendored `office-hours` + `ceo-review` (from garrytan/gstack, MIT).**
+  The two standalone methodology skills — product interrogation ("is this
+  worth building") and strategic plan challenge (scope up/down/kill) — copied
+  verbatim minus upstream promo/branding, wired as Frame (non-code) and Plan
+  fallbacks. The rest of gstack deliberately not adopted (parallel spine →
+  routing ambiguity; self-updating installer → supply-chain surface).
+  `caveman` documented in prereqs (already an always-on integration).
 
 ### Fixed
 - **pre-commit TOCTOU: `git add X && git commit` skipped G7/G8/G12 (found

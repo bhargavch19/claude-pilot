@@ -8,7 +8,7 @@ stays extensible through a one-line registry edit.
 - **Repository structure:** Claude Code single-plugin marketplace
   (`.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` at root).
 - **Skill source:** `skills/pilot/` — `SKILL.md` (routing playbook) + `registry.md` (single-source-of-truth phase table) + `guardrails.md` (CLAUDE.md → hook mapping) + `playbooks/`.
-- **Hooks:** `hooks/{plan-gate,pre-commit,safety-gate,pretooluse-heartbeat,verify-gate,capture-test-run,autoformat,sessionstart-banner,integrity-check,memory-surface,precompact-anchor,log-skill-invocation,route-advisor}.sh` — wired across PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, PreCompact, UserPromptSubmit.
+- **Hooks:** `hooks/{plan-gate,pre-commit,safety-gate,pretooluse-heartbeat,verify-gate,autopilot-gate,capture-test-run,autoformat,sessionstart-banner,integrity-check,memory-surface,precompact-anchor,log-skill-invocation,route-advisor}.sh` — wired across PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, PreCompact, UserPromptSubmit.
 - **MCPs (bundled):** `context7` (docs) · `playwright` (UI verify) · `github` (review / ship).
 - **Bundled skills (this plugin's own):** `migration-safety`, `pre-deploy-checklist`, `post-deploy-monitor` (all under `skills/`). Currently scaffolds — see `docs/superpowers/plans/2026-05-20-production-hardening.md` for completion queue.
 - **Production-quality floor:** `skills/pilot/playbooks/production-floor.md` + `templates/` (CI workflow + pre-commit config) + `apply-floor.sh` — the blocking gates (tests, types, lint, SAST, secret scan, dep audit) the Bootstrap phase wires into new projects.
@@ -99,8 +99,9 @@ rm ~/.claude/skills/pilot                              # only if you symlinked
 2. **Phase routing.** When no literal name is present, pilot reads `skills/pilot/registry.md`, scans the user message for trigger keywords, inspects project state (`.planning/`, `git status`, `git log`), and invokes the right underlying skill via the Skill tool.
    - **Deterministic route advisor (`route-advisor.sh`, UserPromptSubmit).** Before the model sees the prompt, this hook computes — in code, from `registry.md` — the *unambiguous* part of the route and injects it: distinctive literal skill names (hyphen/colon/digit names, e.g. `tdd`, `improve-codebase-architecture`, `gsd-*`, `paul:*`) and project-state spine (`.planning/`→GSD, `.paul/`→PAUL). Common-English skill names (`review`, `run`, `verify`) and all fuzzy intent are deliberately left to the model — the hook only hard-routes what code can decide correctly, so routing is deterministic where it can be and model-judged where it must be.
 3. **Quality gates.** `plan-gate`, `pre-commit`, and the **blocking** `verify-gate` enforce CLAUDE.md-aligned rules — see `skills/pilot/guardrails.md`. `verify-gate` no longer trusts transcript prose: a companion `capture-test-run` hook (PostToolUse/Bash) records the *actual* result of test-runner commands to a fact file, and the gate clears a "done" claim only when a real captured pass exists for this session — closing the hole where a model could write "tests passed" without running anything. Two more hooks add deterministic routing (`route-advisor`, UserPromptSubmit) and settings self-healing (`dedupe-settings-hooks`, SessionStart).
-4. **Bundled MCPs.** `context7` (docs lookup), `playwright` (UI verify), and `github` (review / ship) start automatically and are surfaced to the Skill tool as `mcp__<name>__*` tools.
-5. **Stay extensible.** Adding a new skill is a one-line append to `registry.md`. Adding a new guardrail is a hook script plus a test under `tests/hooks/`.
+4. **Bundled MCPs.** `context7` (docs lookup), `playwright` (UI verify), and `github` (review / ship) start automatically and are surfaced to the Skill tool as `mcp__<name>__*` tools. For UI verify, pilot prefers **`playwright-cli`** (Microsoft's token-efficient CLI for coding agents — `npm i -g @playwright/cli`) when installed, falling back to the playwright MCP.
+5. **Autopilot (v0.10).** Hand pilot one requirement and it conducts the entire loop hands-off — frame → phased plan → **stop for your plan approval** → build (TDD) → verify → bounded fix loop (3 rounds, then halt + report) → review → **stop for your ship approval** → ship → capture. Start with `/pilot-autopilot <requirement>`, the word `autopilot`, or a requirement plus "take this end to end". Durable state in `.pilot/cycle.json` survives session death (`continue` resumes); `hooks/autopilot-gate.sh` (G16, Stop hook) keeps the cycle advancing between checkpoints; abort anytime with `/pilot-autopilot off`. Each phase still routes to its registry skill and every gate still applies.
+6. **Stay extensible.** Adding a new skill is a one-line append to `registry.md`. Adding a new guardrail is a hook script plus a test under `tests/hooks/`.
 
 ## How to invoke pilot
 
@@ -238,6 +239,59 @@ that changed source unless a real test run was captured this session. Modes:
 The gate also honors the session bypass markers (`/pilot-off`,
 `/pilot-off-rails` — which also skip run mode) and auto-releases after two
 consecutive blocks so it can never trap a session.
+
+Autopilot config lives under an `"autopilot"` key in the same file:
+
+```json
+{
+  "autopilot": {
+    "gate": "warn",
+    "max_fix_rounds": 3,
+    "checkpoints": ["plan", "ship"]
+  }
+}
+```
+
+- `gate` — `"warn"` downgrades the autopilot-gate to advisory; `"off"` disables
+  it (the driver still works, it just can't force continuation).
+- `max_fix_rounds` — verify-failure fix attempts before the cycle halts with a
+  report (default 3).
+- `checkpoints` — which approval pauses the cycle takes (default both `plan`
+  and `ship`).
+
+The autopilot-gate honors the same bypass markers and anti-traps after three
+consecutive blocks on an unchanged cycle state.
+
+## Team mode
+
+Pilot started as a single-developer system; these pieces make it shareable:
+
+- **Branch-scoped autopilot cycles** — cycle state lives at
+  `.pilot/cycles/<branch-slug>.json`, so parallel developers on one repo never
+  clobber each other (legacy `.pilot/cycle.json` still honored).
+- **Profiles** — `.pilot.json {"profile": {"style": "caveman"|"standard",
+  "strictness": "solo"|"team"}}` sets the communication register and scope
+  discipline per repo instead of inheriting one developer's CLAUDE.md taste.
+- **Shared outcomes** — `.pilot.json {"team": {"shared_outcomes": true}}` makes
+  verify-gate append every pass/blocked outcome (with user) to the repo-scoped
+  `.pilot/outcomes.jsonl`; `dev/outcome-report.sh [--days N]` turns it into a
+  first-pass-verified rate with per-user breakdown.
+- **Pinned bootstrap** — `dev/bootstrap-team.sh` installs the recommended
+  skill constellation at the exact SHAs/versions in `dev/skills-lock.json`
+  (`--check` for drift reporting). No self-updaters, no `curl | bash`.
+- **Measurement** — `docs/ab-method.md` documents the pilot-on/off A/B
+  protocol so adoption is argued from numbers, not vibes.
+- **Witnessed approvals** — autopilot checkpoint approvals are machine-checked:
+  `hooks/approval-capture.sh` (UserPromptSubmit) records the user's actual
+  approving prompt (or `/pilot-approve`) as a witness marker; the Stop gate
+  flags any checkpoint crossed without one as self-approval. The model cannot
+  synthesize a UserPromptSubmit event, so a witness proves a human said yes.
+- **Marketplace drift detection** — `dev/skills-lock.json` pins marketplace
+  plugins by version/SHA; `bootstrap-team.sh --check` compares against Claude
+  Code's `installed_plugins.json` and reports drift (alignment stays a human
+  action — the marketplace owns installs).
+- **Onboarding** — `docs/team-onboarding.md` is the 10-minute mental model
+  for a new teammate.
 
 ## Tests
 
