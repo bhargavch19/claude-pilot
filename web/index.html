@@ -620,7 +620,7 @@
 
     .flow-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(7, 1fr);
       gap: 0;
       font-size: 12px;
     }
@@ -789,7 +789,7 @@
 <body>
   <div class="page">
     <header>
-      <span class="chip"><span class="chip-dot"></span> pilot v0.7.0</span>
+      <span class="chip"><span class="chip-dot"></span> pilot v0.10.0</span>
       <span></span>
       <span class="header-meta">claude code · single-plugin marketplace</span>
       <a class="header-link" href="https://github.com" target="_blank" rel="noreferrer">github →</a>
@@ -807,7 +807,7 @@
       <dl class="hero-side">
         <div class="pair">
           <dt>what</dt>
-          <dd>Six shell hooks + a routing skill + six slash commands + three bundled MCPs (<code>context7</code>, <code>playwright</code>, <code>github</code>), wired automatically by the plugin manifest.</dd>
+          <dd>Fourteen shell hooks across seven events (including a deterministic <code>UserPromptSubmit</code> route-advisor and an autopilot Stop gate) + a routing skill + ten slash commands + three bundled MCPs (<code>context7</code>, <code>playwright</code>, <code>github</code>), with <code>playwright-cli</code> preferred for UI verification when installed. Wired automatically by the plugin manifest.</dd>
         </div>
         <div class="pair">
           <dt>trigger</dt>
@@ -815,15 +815,19 @@
         </div>
         <div class="pair">
           <dt>phases</dt>
-          <dd>17 routed phases: Recall · Triage · Bootstrap · Frame · Plan · Build · Debug · Performance · Verify · Review · Security · Refactor · Migration · Pre-deploy · Ship · Post-deploy · Capture. Each maps to a primary skill with at least one fallback.</dd>
+          <dd>21 routed phases: Recall · Triage · Bootstrap · Map · Frame · Plan · Build · Debug · Performance · Verify · Review · Security · Documentation · Refactor · Migration · Dependencies · Pre-deploy · Ship · Release · Post-deploy · Capture — plus <strong>Autopilot</strong>: one requirement in, the whole loop conducted hands-off with exactly two checkpoints (plan approval, ship approval) and a bounded verify→fix loop. Each phase maps to a primary skill with at least one fallback. GSD is the default spine; PAUL is opt-in.</dd>
         </div>
         <div class="pair">
           <dt>how</dt>
-          <dd>SessionStart prints a banner. PreToolUse gates large edits and bad commits. Stop / SubagentStop verify "done" claims. PreCompact re-anchors routing rules.</dd>
+          <dd>UserPromptSubmit injects a deterministic route for literal skill names + project state. SessionStart prints a banner and self-heals settings. PreToolUse gates large edits and bad commits. Stop / SubagentStop <strong>block</strong> "done" claims without test evidence. PreCompact re-anchors routing rules.</dd>
+        </div>
+        <div class="pair">
+          <dt>team</dt>
+          <dd>Autopilot cycles are branch-scoped (<code>.pilot/cycles/&lt;branch&gt;.json</code>) so parallel devs never collide; checkpoint approvals are <strong>machine-witnessed</strong> from real user prompts (a <code>UserPromptSubmit</code> hook the model can't fake — self-approved checkpoints get bounced); <code>.pilot.json</code> profiles set per-repo style/strictness; opt-in shared outcome ledger + <code>dev/outcome-report.sh</code> give the team a first-pass-verified rate; <code>dev/bootstrap-team.sh</code> installs the constellation at pinned versions and reports marketplace drift; <code>docs/team-onboarding.md</code> is the 10-minute ramp.</dd>
         </div>
         <div class="pair">
           <dt>why</dt>
-          <dd>So your AI sessions look the same across framing, planning, TDD, debugging, and shipping — without remembering which skill to invoke.</dd>
+          <dd>So your AI sessions look the same across framing, planning, TDD, debugging, and shipping — without remembering which skill to invoke. And measured, not asserted: routing has a golden-set eval, outcomes have an A/B method (<code>docs/ab-method.md</code>).</dd>
         </div>
       </dl>
     </section>
@@ -907,13 +911,18 @@
     </section>
 
     <section class="flow">
-      <h2 class="flow-title">six hook events in time order</h2>
-      <p class="flow-sub">Each box lights up when the corresponding hook fires in the active scenario above. SubagentStop shares its script with Stop — both nudge "done without evidence" claims.</p>
+      <h2 class="flow-title">seven hook events in time order</h2>
+      <p class="flow-sub">Each box lights up when the corresponding hook fires in the active scenario above. UserPromptSubmit runs first on every prompt (deterministic route-advisor). SubagentStop shares its script with Stop — both <strong>block</strong> "done without evidence" claims.</p>
       <div class="flow-grid" id="flow-grid">
         <div class="flow-cell" data-hook="sessionstart">
           <div class="flow-cell-head">SessionStart</div>
-          <div class="flow-cell-meta">on open</div>
+          <div class="flow-cell-meta">on open · self-heal</div>
           <div class="flow-cell-script">sessionstart-banner.sh</div>
+        </div>
+        <div class="flow-cell" data-hook="route-advisor">
+          <div class="flow-cell-head">UserPromptSubmit</div>
+          <div class="flow-cell-meta">every prompt</div>
+          <div class="flow-cell-script">route-advisor.sh · approval-capture.sh</div>
         </div>
         <div class="flow-cell" data-hook="plan-gate">
           <div class="flow-cell-head">PreToolUse</div>
@@ -928,7 +937,7 @@
         <div class="flow-cell" data-hook="verify">
           <div class="flow-cell-head">Stop</div>
           <div class="flow-cell-meta">turn ends</div>
-          <div class="flow-cell-script">verify-gate.sh</div>
+          <div class="flow-cell-script">verify-gate.sh · autopilot-gate.sh</div>
         </div>
         <div class="flow-cell" data-hook="verify-sub">
           <div class="flow-cell-head">SubagentStop</div>
@@ -985,9 +994,21 @@
           </tr>
           <tr>
             <td class="id">G14</td>
-            <td>claim "done" only with test evidence</td>
+            <td>block "done" claims without test evidence</td>
             <td>Stop · SubagentStop</td>
             <td class="script">verify-gate</td>
+          </tr>
+          <tr>
+            <td class="id">G15</td>
+            <td>block destructive commands + secret reads</td>
+            <td>PreToolUse</td>
+            <td class="script">safety-gate</td>
+          </tr>
+          <tr>
+            <td class="id">G16</td>
+            <td>autopilot: no stopping mid-cycle, no crossing checkpoints unapproved</td>
+            <td>Stop</td>
+            <td class="script">autopilot-gate</td>
           </tr>
         </table>
       </div>
@@ -1003,13 +1024,17 @@
           <div><code>/pilot-status</code><span class="desc">wired hooks · bypass · last routes</span></div>
           <div><code>/pilot-trace</code><span class="desc">current session's phase chain in order</span></div>
           <div><code>/pilot-doctor</code><span class="desc">full install diagnostic</span></div>
+          <div><code>/pilot-autopilot &lt;req&gt;</code><span class="desc">requirement → shipped, 2 checkpoints</span></div>
+          <div><code>/pilot-approve</code><span class="desc">witness approval for the waiting checkpoint</span></div>
+          <div><code>/pilot-floor</code><span class="desc">apply blocking CI + pre-commit quality floor</span></div>
+          <div><code>/pilot-remember</code><span class="desc">append a durable project note</span></div>
         </div>
       </div>
     </section>
 
     <footer>
       <span>~/Workspace/claude-skill</span>
-      <span>v0.7.0 · 2026-05-20</span>
+      <span>v0.10.0 · updated 2026-07-21</span>
     </footer>
   </div>
 
@@ -1022,7 +1047,7 @@
         outcomeFinal: "shipped",
         steps: [
           { at: 0,    flow: "sessionstart" },
-          { at: 0,    term: { type: "banner", text: "[pilot active] v0.7.0 phase routing on." } },
+          { at: 0,    term: { type: "banner", text: "[pilot active] v0.10.0 phase routing on." } },
           { at: 700,  term: { type: "system", text: "registry: skills/pilot/registry.md" } },
           { at: 1200, term: { type: "system", text: "bypass: /pilot-off | /pilot-off-rails | /pilot-bypass" } },
           { at: 1900, term: { type: "user",   text: "build a settings panel UI for the admin page" } },
@@ -1048,7 +1073,7 @@
         outcomeFinal: "blocked",
         steps: [
           { at: 0,    flow: "sessionstart" },
-          { at: 0,    term: { type: "banner", text: "[pilot active] v0.7.0 phase routing on." } },
+          { at: 0,    term: { type: "banner", text: "[pilot active] v0.10.0 phase routing on." } },
           { at: 1000, term: { type: "user", text: "just refactor the auth middleware quickly" } },
           { at: 1800, set: { phase: "7. Refactor", phaseMeta: "matched on \"refactor\"", skill: "improve-codebase-architecture" } },
           { at: 1800, term: { type: "system", text: "pilot routes → 7. Refactor · improve-codebase-architecture" } },
@@ -1069,7 +1094,7 @@
         outcomeFinal: "shipped",
         steps: [
           { at: 0,    flow: "sessionstart" },
-          { at: 0,    term: { type: "banner", text: "[pilot active] v0.7.0 phase routing on." } },
+          { at: 0,    term: { type: "banner", text: "[pilot active] v0.10.0 phase routing on." } },
           { at: 900,  term: { type: "user", text: "commit what we have so far" } },
           { at: 1700, set: { phase: "8. Ship", phaseMeta: "commit intent · pre-commit gates fire", skill: "gsd-ship" } },
           { at: 2400, term: { type: "assistant", text: "committing current state..." } },
@@ -1089,7 +1114,7 @@
         outcomeFinal: "gate re-engages",
         steps: [
           { at: 0,    flow: "sessionstart" },
-          { at: 0,    term: { type: "banner", text: "[pilot active] v0.7.0 phase routing on." } },
+          { at: 0,    term: { type: "banner", text: "[pilot active] v0.10.0 phase routing on." } },
           { at: 900,  term: { type: "user", text: "one quick scratch edit — no plan, no fuss" } },
           { at: 1700, term: { type: "user", text: "/pilot-off" } },
           { at: 2200, marker: { name: "bypass-once", add: true }, set: { hook: "marker written", hookMeta: "~/.cache/pilot/bypass-once" } },
@@ -1110,7 +1135,7 @@
         outcomeFinal: "docs delivered",
         steps: [
           { at: 0,    flow: "sessionstart" },
-          { at: 0,    term: { type: "banner", text: "[pilot active] v0.7.0 phase routing on." } },
+          { at: 0,    term: { type: "banner", text: "[pilot active] v0.10.0 phase routing on." } },
           { at: 900,  term: { type: "user", text: "how does Server Components work in React 19?" } },
           { at: 1700, set: { phase: "Docs lookup", phaseMeta: "library + version detected", skill: "context7 MCP" } },
           { at: 1700, term: { type: "system", text: "pilot routes → Docs lookup · context7 MCP (bundled)" } },
