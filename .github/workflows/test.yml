@@ -93,11 +93,15 @@ jobs:
 
       - name: mcpServers entries well-formed
         run: |
-          # Every entry needs a .command string. .args/env optional.
+          # Every entry is either a local command server (.command string) or
+          # a hosted server (.type=="http" with a .url string).
           jq -e '
             (.mcpServers // {})
             | to_entries
-            | all(.value.command and (.value.command | type == "string"))
+            | all(
+                (.value.command and (.value.command | type == "string"))
+                or (.value.type == "http" and (.value.url | type == "string"))
+              )
           ' .claude-plugin/plugin.json
           # If any entry uses args, all elements must be strings.
           jq -e '
