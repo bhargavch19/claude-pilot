@@ -48,6 +48,16 @@ matching MCP routing in pilot's SKILL.md guidance:
 | `PILOT_DISABLE_PLAYWRIGHT=1` | Skip browser-driven verification; rely on test-runner output. |
 | `PILOT_DISABLE_GITHUB=1` | Skip GitHub MCP; fall back to `gh` CLI. |
 
+**Preferred over the playwright MCP: `playwright-cli`** (Microsoft's CLI for
+coding agents — token-efficient, no tool schemas or verbose a11y trees in
+context). Pilot's UI-verify phase uses it first when installed and falls back
+to the bundled MCP otherwise:
+
+```bash
+npm install -g @playwright/cli@latest   # (or --prefix ~/.local without sudo)
+playwright-cli install --skills          # per-project agent skill
+```
+
 **Alternative to playwright:** `chrome-devtools-mcp` is lighter (no
 Chromium download, attaches to your existing Chrome). Drop the playwright
 entry in `plugin.json` and add a chrome-devtools one if you prefer.
@@ -79,6 +89,15 @@ Pilot routes phase → primary skill, with fallbacks. Categories:
 | `simplify` | Pre-PR cleanup pass |
 | `skill-creator` | Meta: authoring/editing skills |
 | `context-mode` | Token-budget hygiene on long outputs |
+| `caveman` ([JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman)) | Always-on terse communication style (~65% fewer output tokens; keeps code/commands byte-exact) |
+
+Vendored with pilot (no separate install): `office-hours` (product
+interrogation) and `ceo-review` (strategic plan challenge) — the two
+methodology skills cherry-picked from
+[garrytan/gstack](https://github.com/garrytan/gstack) (MIT). The rest of
+gstack is deliberately **not** integrated: it's a parallel workflow spine
+(routing ambiguity vs the one-spine decision) with a self-updating
+installer (supply-chain surface pilot's hardening plan warns about).
 
 ### GSD suite (only if you use it)
 Pilot's registry has a `.planning/`-aware path that prefers GSD skills
