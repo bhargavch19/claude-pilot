@@ -5,7 +5,13 @@ description: Unified AI coding conductor. Auto-routes intent to the right skill 
 
 # Pilot
 
-You are conducting Bhargav's coding session. Your job is to:
+You are conducting the user's coding session. Read the optional
+`.pilot.json` `"profile"` block for per-repo/per-team tuning —
+`{"profile": {"style": "caveman"|"standard", "strictness": "solo"|"team"}}`
+(`style` sets the communication register: `caveman` engages the terse
+always-on skill, `standard` disables it; `strictness: "team"` means prefer
+asking over assuming on scope calls and never soften a gate for convenience).
+No block → the user's own CLAUDE.md preferences govern. Your job is to:
 1. **Detect the phase** of work from the user's prompt and project state.
 2. **Invoke the right underlying skill** per `registry.md`.
 3. **Enforce guardrails** per `guardrails.md`.
@@ -62,9 +68,20 @@ No keyword scoring needed — every phase has an explicit owner.
 - **Paraphrase, not literal:** "the formal plan skill" does **not** match `writing-plans` — falls through to phase detection (which still routes to `superpowers:writing-plans` for the Plan phase, so the outcome is identical).
 - **Unknown literal:** if a token looks like a skill name but isn't in the registry (e.g. `magic-fixer`), don't invent — fall through to phase detection and surface the gap once.
 
+## Autopilot mode — requirement in, shipped change out
+
+When the prompt contains the literal `autopilot`, invokes `/pilot-autopilot`, or pairs a requirement with explicit hands-off intent ("take this end to end", "handle this requirement fully", "don't stop until it ships"), switch from per-phase routing to the **autopilot driver**: read `autopilot.md` (next to this file) and conduct the full loop — frame → plan → **checkpoint: plan approval** → build → verify → (bounded fix loop) → review → **checkpoint: ship approval** → ship → capture — without waiting for per-phase prompts.
+
+- State lives in `.pilot/cycle.json` (repo-scoped; you are the only writer). Update it at every transition **before** invoking the phase skill.
+- `hooks/autopilot-gate.sh` (G16) blocks ending the turn mid-cycle; the checkpoint (`awaiting_*`) and terminal (`done`/`halted`/`aborted`) states are the allow-states. Set the awaiting status **before** stopping to ask for approval.
+- Each phase still routes to its registry skill and every gate still applies — autopilot changes *when* phases run, never *how*.
+- A requirement **without** hands-off intent is normal phase routing. Never infer autopilot.
+
 ## Cross-turn phase awareness
 
-Pilot doesn't carry explicit phase state across turns — but the routing telemetry already is the state. **Before** running phase detection, glance at the last ~5 entries of `${XDG_CACHE_HOME:-~/.cache}/pilot/routing.log`:
+**First**: if `.pilot/cycle.json` exists with a non-terminal status, an autopilot cycle is in flight — it outranks everything below. Read it and resume at `current_phase` per `autopilot.md` (re-present the ask if at an `awaiting_*` checkpoint).
+
+Otherwise pilot doesn't carry explicit phase state across turns — but the routing telemetry already is the state. **Before** running phase detection, glance at the last ~5 entries of `${XDG_CACHE_HOME:-~/.cache}/pilot/routing.log`:
 
 ```bash
 tail -5 "${XDG_CACHE_HOME:-$HOME/.cache}/pilot/routing.log" 2>/dev/null
@@ -136,12 +153,33 @@ value), skip the docs-lookup phase entirely. Acknowledge the limitation
 briefly ("docs-lookup disabled — using training-data knowledge for this
 library; you can `unset PILOT_DISABLE_CONTEXT7` to re-enable").
 
-## playwright — bundled browser-driving MCP
+## Browser-driven verify — playwright-cli first, playwright MCP fallback
 
-Pilot ships with the `@playwright/mcp` MCP server. Use it **proactively
-in the Verify phase whenever a Build (UI) phase preceded it**. The whole
-point of the verify-gate is "claim done only with evidence"; for UI work,
-the evidence has to be a real interaction, not just a passing test.
+For UI work, verify-gate evidence has to be a real interaction, not just a
+passing test. Drive the browser **proactively in the Verify phase whenever a
+Build (UI) phase preceded it** — with this preference order:
+
+**1. `playwright-cli`** (when `command -v playwright-cli` succeeds) — Microsoft's
+CLI for coding agents. Token-efficient: no MCP tool schemas, no verbose
+accessibility trees in context. Typical verify flow, all via Bash:
+
+```bash
+playwright-cli open <dev-server-url>   # headless; --headed to watch
+playwright-cli snapshot                # page snapshot → element refs (e15, ...)
+playwright-cli click e15               # interact via refs
+playwright-cli type "text" ; playwright-cli press Enter
+playwright-cli eval "document.title"   # assert state
+playwright-cli screenshot              # visual record
+playwright-cli close
+```
+
+Use `-s=<name>` sessions to isolate projects, `playwright-cli show` for the
+monitoring dashboard. If installed via `playwright-cli install --skills`, a
+`playwright-cli` skill is available — invoke it rather than improvising flags.
+
+**2. `playwright` MCP** (bundled) — fall back when the CLI isn't installed, or
+when the flow genuinely benefits from persistent browser state with rich
+introspection (long exploratory loops).
 
 Common tools:
 - `mcp__playwright__browser_navigate` — open a URL.
@@ -210,6 +248,7 @@ and fall back to `gh` CLI invocations via Bash.
 | "monitor", "after deploy", "rollback", "did the deploy work" | 8.5 Post-deploy |
 | Phase complete | 9. Capture (auto) |
 | "how do I X", "is there a skill for", "find a skill" | Meta. Skill discovery |
+| "autopilot"; requirement + "end to end" / "hands-off" | Meta. Autopilot (full loop, 2 checkpoints) |
 
 ## Playbooks
 

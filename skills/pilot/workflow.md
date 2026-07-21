@@ -2,6 +2,8 @@
 
 The default flow for a new feature. Pilot follows this unless the user's prompt clearly indicates a different phase (debug, refactor, etc.).
 
+> **Autopilot automates this exact loop.** With `autopilot` / hands-off intent, pilot conducts every step below without per-phase prompting, pausing only at two checkpoints — plan approval (after step 4) and ship approval (before step 10) — with a bounded verify→fix loop in between. Driver spec: `autopilot.md`; enforcement: `hooks/autopilot-gate.sh` (G16).
+
 ## The loop
 
 ```
@@ -47,7 +49,7 @@ Recall → Frame → PRD → Plan → Tracer → TDD → AFK execute → Verify 
 
 ### 7. AFK execute
 - For multi-slice plans, `superpowers:subagent-driven-development` dispatches a fresh subagent per slice.
-- Bhargav reviews diff between slices (G6).
+- The user reviews the diff between slices (G6).
 
 ### 8. Verify
 - `superpowers:verification-before-completion` — runs the test suite, captures output, asserts green.

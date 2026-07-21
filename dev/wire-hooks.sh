@@ -49,8 +49,11 @@ jq --arg pd "$PLUGIN_DIR" '
         {"matcher":"Bash","hooks":[{"type":"command","command":($pd + "/hooks/capture-test-run.sh")}]},
         {"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":($pd + "/hooks/autoformat.sh")}]}
       ] |
-  .hooks.Stop = ((.hooks.Stop // []) | drop_pilot("verify-gate.sh"))
-    + [{"hooks":[{"type":"command","command":($pd + "/hooks/verify-gate.sh")}]}] |
+  .hooks.Stop = ((.hooks.Stop // []) | drop_pilot("verify-gate.sh") | drop_pilot("autopilot-gate.sh"))
+    + [{"hooks":[
+        {"type":"command","command":($pd + "/hooks/verify-gate.sh")},
+        {"type":"command","command":($pd + "/hooks/autopilot-gate.sh")}
+      ]}] |
   .hooks.SubagentStop = ((.hooks.SubagentStop // []) | drop_pilot("verify-gate.sh"))
     + [{"hooks":[{"type":"command","command":($pd + "/hooks/verify-gate.sh")}]}] |
   .hooks.SessionStart = ((.hooks.SessionStart // []) | drop_pilot("sessionstart-banner.sh") | drop_pilot("integrity-check.sh") | drop_pilot("memory-surface.sh"))
@@ -61,8 +64,11 @@ jq --arg pd "$PLUGIN_DIR" '
       ]}] |
   .hooks.PreCompact = ((.hooks.PreCompact // []) | drop_pilot("precompact-anchor.sh"))
     + [{"hooks":[{"type":"command","command":($pd + "/hooks/precompact-anchor.sh")}]}] |
-  .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) | drop_pilot("route-advisor.sh"))
-    + [{"hooks":[{"type":"command","command":($pd + "/hooks/route-advisor.sh")}]}]
+  .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) | drop_pilot("route-advisor.sh") | drop_pilot("approval-capture.sh"))
+    + [{"hooks":[
+        {"type":"command","command":($pd + "/hooks/route-advisor.sh")},
+        {"type":"command","command":($pd + "/hooks/approval-capture.sh")}
+      ]}]
 ' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 
 echo "Wired pilot hooks (dev install) into $SETTINGS:"

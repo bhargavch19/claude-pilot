@@ -1,6 +1,6 @@
 {
   "name": "pilot",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Unified AI coding conductor — auto-routes intent to the right skill (grill, plan, TDD, debug, verify, ship), enforces CLAUDE.md quality gates, and stays extensible via registry.md.",
   "author": {
     "name": "Bhargav Chelluboina"
@@ -97,6 +97,10 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/verify-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/autopilot-gate.sh"
           }
         ]
       }
@@ -145,6 +149,11 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/route-advisor.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/approval-capture.sh",
             "timeout": 5
           }
         ]

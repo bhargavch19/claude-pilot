@@ -27,11 +27,11 @@ jq --arg pd "$PLUGIN_DIR" '
     .hooks |=
       ( (.PreToolUse   // [] | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh") | drop_pilot("safety-gate.sh") | drop_pilot("pretooluse-heartbeat.sh")) as $p
       | (.PostToolUse  // [] | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh") | drop_pilot("autoformat.sh")) as $po
-      | (.Stop         // [] | drop_pilot("verify-gate.sh"))                             as $s
+      | (.Stop         // [] | drop_pilot("verify-gate.sh") | drop_pilot("autopilot-gate.sh")) as $s
       | (.SubagentStop // [] | drop_pilot("verify-gate.sh"))                             as $sa
       | (.SessionStart // [] | drop_pilot("sessionstart-banner.sh") | drop_pilot("integrity-check.sh") | drop_pilot("memory-surface.sh")) as $ss
       | (.PreCompact   // [] | drop_pilot("precompact-anchor.sh"))                       as $pc
-      | (.UserPromptSubmit // [] | drop_pilot("route-advisor.sh"))                       as $up
+      | (.UserPromptSubmit // [] | drop_pilot("route-advisor.sh") | drop_pilot("approval-capture.sh")) as $up
       | { PreToolUse: $p, PostToolUse: $po, Stop: $s, SubagentStop: $sa, SessionStart: $ss, PreCompact: $pc, UserPromptSubmit: $up }
         + (del(.PreToolUse, .PostToolUse, .Stop, .SubagentStop, .SessionStart, .PreCompact, .UserPromptSubmit))
       )

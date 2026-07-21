@@ -64,4 +64,13 @@ out=$(ctx "use tdd")
 rm -f "$XDG_CACHE_HOME/pilot/off-rails"
 echo "PASS: bypass marker silences routing"
 
+# 8. Autopilot token: SAFE_SINGLE whole-word match; plural must NOT match.
+out=$(ctx "autopilot this: add dark mode to settings")
+[[ "$out" == *'`autopilot`'* ]] || { echo "FAIL: literal 'autopilot' not routed, got: $out"; exit 1; }
+echo "PASS: 'autopilot' hard-routes"
+
+out=$(ctx "the autopilots in planes are interesting")
+[[ "$out" != *'`autopilot`'* ]] || { echo "FAIL: 'autopilots' must not whole-word match"; exit 1; }
+echo "PASS: 'autopilots' not matched (whole-word)"
+
 echo "ALL route-advisor tests passed."

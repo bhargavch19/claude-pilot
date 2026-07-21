@@ -36,7 +36,7 @@ PROMPT_LC=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]')
 
 # Distinctive single-word skill names that are safe to hard-route on even
 # without a hyphen/colon/digit (not English words).
-SAFE_SINGLE=" tdd graphify caveman playwright "
+SAFE_SINGLE=" tdd graphify caveman playwright autopilot "
 
 seen=" "
 chain=""
