@@ -96,9 +96,20 @@ SESSION=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || tru
 # first-pass-verified rate and nudge when it's poor.
 REPO=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
 record_outcome() {  # $1 = pass | blocked | warn
-  jq -cn --argjson ts "$(date +%s 2>/dev/null || echo 0)" --arg s "${SESSION:-}" \
-    --arg r "$REPO" --arg o "$1" '{ts:$ts, session:$s, repo:$r, result:$o}' \
-    >> "$CACHE_DIR/outcomes.jsonl" 2>/dev/null || true
+  local row
+  row=$(jq -cn --argjson ts "$(date +%s 2>/dev/null || echo 0)" --arg s "${SESSION:-}" \
+    --arg r "$REPO" --arg o "$1" --arg u "${USER:-}" \
+    '{ts:$ts, session:$s, repo:$r, result:$o, user:$u}' 2>/dev/null) || return 0
+  printf '%s\n' "$row" >> "$CACHE_DIR/outcomes.jsonl" 2>/dev/null || true
+  # Team mode: also append to the repo-scoped ledger so the whole team's
+  # first-pass-verified rate is visible in one place (dev/outcome-report.sh).
+  # Opt-in via .pilot.json { "team": { "shared_outcomes": true } }.
+  local pj=""
+  [[ -f "$REPO/.pilot.json" ]] && pj="$REPO/.pilot.json"
+  if [[ -n "$pj" ]] && [[ "$(jq -r '.team.shared_outcomes // false' "$pj" 2>/dev/null)" == "true" ]]; then
+    mkdir -p "$REPO/.pilot" 2>/dev/null || true
+    printf '%s\n' "$row" >> "$REPO/.pilot/outcomes.jsonl" 2>/dev/null || true
+  fi
 }
 
 # A capture clears the gate only when it passed AND belongs to this run:
