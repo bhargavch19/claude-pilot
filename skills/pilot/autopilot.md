@@ -81,6 +81,14 @@ awaiting status first** — that is what makes the ask deliverable.
 "checkpoints": ["plan","ship"], "gate": "warn"|"off"}}`. Defaults:
 3 rounds, both checkpoints, blocking gate.
 
+**Publishing the cycle file** — with `.pilot.json {"board": {"publish_cycles":
+true}}` (**default off**), stage the cycle file with the change it describes, so
+it rides the Build and Ship commits onto the story branch and a story board built
+from any clone can read that branch's cycle state. Off → cycle state stays local
+and a board only sees it in this working copy. **Not a hook**: a hook that
+committed each transition would put a second writer beside you — above, you are
+the only writer, hooks only read — and spend a noise commit per phase change.
+
 ## Cycle start
 
 1. Capture the requirement **verbatim** into `requirement`.

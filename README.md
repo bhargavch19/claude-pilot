@@ -276,6 +276,13 @@ Pilot started as a single-developer system; these pieces make it shareable:
   verify-gate append every pass/blocked outcome (with user) to the repo-scoped
   `.pilot/outcomes.jsonl`; `dev/outcome-report.sh [--days N]` turns it into a
   first-pass-verified rate with per-user breakdown.
+- **Published cycle state** — `.pilot.json {"board": {"publish_cycles": true}}`
+  makes the autopilot conductor stage the branch-scoped cycle file
+  (`.pilot/cycles/<branch-slug>.json`) with the change it describes, so it rides
+  the Build/Ship commits onto the story branch and a story board built from any
+  clone reads the same cycle state. Off by default for the same reason as shared
+  outcomes: committing an agent's working state is a per-team decision. With it
+  off, a board sees cycle state only in the developer's own working copy.
 - **Pinned bootstrap** — `dev/bootstrap-team.sh` installs the recommended
   skill constellation at the exact SHAs/versions in `dev/skills-lock.json`
   (`--check` for drift reporting). No self-updaters, no `curl | bash`.

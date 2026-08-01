@@ -49,14 +49,19 @@ Three failed fix rounds → the cycle halts with a report instead of thrashing.
 {
   "profile":  { "style": "standard", "strictness": "team" },
   "team":     { "shared_outcomes": true },
+  "board":    { "publish_cycles": true },
   "autopilot": { "max_fix_rounds": 3 },
   "test_patterns": ["<your runner command>"]
 }
 ```
 
 `shared_outcomes` feeds `.pilot/outcomes.jsonl`; `dev/outcome-report.sh`
-turns it into the team's first-pass-verified rate. `test_patterns` teaches
-the capture hook your test runner so verify-gate can see real runs.
+turns it into the team's first-pass-verified rate. `publish_cycles` makes the
+autopilot conductor stage `.pilot/cycles/<branch-slug>.json` with the change it
+describes, so cycle state travels on the story branch and a story board built
+from any clone reads it. Both default **off** — committing an agent's working
+state is a per-team call, not pilot's. `test_patterns` teaches the capture hook
+your test runner so verify-gate can see real runs.
 
 ## Day one
 
