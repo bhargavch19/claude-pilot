@@ -10,3 +10,6 @@ node_modules/
 
 # Pilot bypass markers (created at runtime; never tracked)
 .cache/pilot/
+
+# Playwright-cli session artifacts (screenshots, snapshots, console logs)
+.playwright-cli/
