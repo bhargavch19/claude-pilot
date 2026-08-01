@@ -111,3 +111,26 @@ jobs:
                 (.value.args // []) | type == "array" and all(. | type == "string")
               )
           ' .claude-plugin/plugin.json
+
+  vendored-board:
+    name: vendored story board (templates/board)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # templates/board is a COPY of appbuild-structure/factory-board, scaffolded
+      # into new repos by Bootstrap step 6. Nothing detects the original moving
+      # ahead — see templates/board/VENDORED.md. This job proves only that the
+      # copy passes its own suite, which is the difference between shipping code
+      # we have run and code we have merely pasted.
+      - name: Install board dependencies
+        working-directory: templates/board
+        run: npm ci
+
+      - name: Run the board suite
+        working-directory: templates/board
+        run: npm test

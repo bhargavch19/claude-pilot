@@ -44,6 +44,14 @@ Run during **Phase 0.75 Bootstrap**, after `gsd-new-project` / `init`:
 4. Install CLIs the project lacks: `gitleaks`, `semgrep`, `osv-scanner` (document in
    `CONTRIBUTING.md`; CI installs them itself).
 5. Record the activated thresholds in `CLAUDE.md` so the floor is discoverable.
+6. Scaffold the story board — copy `templates/board/` → `board/`, **excluding
+   `VENDORED.md`** (that file records the vendoring into pilot and is meaningless in
+   an app repo; see it for what this copy is a copy *of*). Then: stub `BRD.md` with
+   one epic marker and an empty `tdd/`; drop `board/ci/branch-name.yml` →
+   `.github/workflows/branch-name.yml`; append `board/board.json` to `.gitignore`.
+   Skip anything that already exists rather than overwriting — `BRD.md` and `tdd/`
+   are the project's own content after the first run, and `board.json` is a build
+   artifact that must stay ignored, not re-appended.
 
 Idempotent: re-running must not duplicate files or workflow jobs.
 

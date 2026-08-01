@@ -1,0 +1,15 @@
+{
+  "name": "story-board",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Technical Design Document story board — derives status from git",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build-board.mjs",
+    "start-story": "node scripts/start-story.mjs",
+    "e2e": "bash dev/e2e.sh"
+  },
+  "dependencies": { "js-yaml": "^4.1.0" }
+}

@@ -1,0 +1,4 @@
+# BRD
+
+## Core
+<!-- epic: core -->
