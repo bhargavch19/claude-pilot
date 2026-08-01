@@ -90,6 +90,10 @@ Pilot routes phase → primary skill, with fallbacks. Categories:
 | `skill-creator` | Meta: authoring/editing skills |
 | `context-mode` | Token-budget hygiene on long outputs |
 | `caveman` ([JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman)) | Always-on terse communication style (~65% fewer output tokens; keeps code/commands byte-exact) |
+| `typescript-lsp` (official marketplace) | Symbol-level code intelligence for Build/Debug/Refactor — go-to-def, references, safe renames (swap for your stack's LSP plugin) |
+| `semgrep` (official marketplace) | Maintained SAST rules — activates the production floor's SAST gate + 6.5 Security fallback |
+| `expo` (official marketplace) | Framework skills for React Native / Expo repos (Build UI fallback) |
+| `pr-review-toolkit` (official marketplace) | PR-native review workflows for Review/Ship (pairs with the `github` MCP) |
 
 Vendored with pilot (no separate install): `office-hours` (product
 interrogation) and `ceo-review` (strategic plan challenge) — the two

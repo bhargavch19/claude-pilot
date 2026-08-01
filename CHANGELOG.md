@@ -4,6 +4,19 @@ All notable changes to the `pilot` plugin are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 [Semantic Versioning](https://semver.org/) once 1.0 ships.
 
+## [Unreleased]
+
+### Added
+- **Marketplace picks integrated (research-driven).** Four official plugins
+  wired as registry fallbacks/always-on and pinned in `skills-lock.json`:
+  `typescript-lsp` (symbol-level intelligence — always-on note for
+  Build/Debug/Refactor; grep for text, LSP for symbols, graphify for
+  architecture), `semgrep` (activates the floor's SAST row; 6.5 Security
+  fallback), `expo` (RN/Expo Build fallback), `pr-review-toolkit`
+  (Review/Ship fallback beside the github MCP). Deliberately skipped:
+  `feature-dev` (competing spine), SaaS reviewers, `ralph-loop` — rationale
+  in prereqs/registry.
+
 ## [0.10.0] - 2026-07-20
 
 ### Added

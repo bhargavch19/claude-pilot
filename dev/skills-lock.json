@@ -42,6 +42,38 @@
       "covers": "Recall + Capture"
     },
     {
+      "name": "typescript-lsp",
+      "kind": "marketplace",
+      "install": "claude plugin install typescript-lsp@claude-plugins-official",
+      "plugin_id": "typescript-lsp@claude-plugins-official",
+      "ref": "1.0.0",
+      "covers": "symbol-level code intelligence (Build/Debug/Refactor)"
+    },
+    {
+      "name": "semgrep",
+      "kind": "marketplace",
+      "install": "claude plugin install semgrep@claude-plugins-official",
+      "plugin_id": "semgrep@claude-plugins-official",
+      "ref": "2.1.3",
+      "covers": "SAST — makes the production-floor gate real (6.5 Security)"
+    },
+    {
+      "name": "expo",
+      "kind": "marketplace",
+      "install": "claude plugin install expo@claude-plugins-official",
+      "plugin_id": "expo@claude-plugins-official",
+      "ref": "1.8.3",
+      "covers": "React Native / Expo build (stack-specific)"
+    },
+    {
+      "name": "pr-review-toolkit",
+      "kind": "marketplace",
+      "install": "claude plugin install pr-review-toolkit@claude-plugins-official",
+      "plugin_id": "pr-review-toolkit@claude-plugins-official",
+      "ref": "unknown",
+      "covers": "PR-native review workflows (Review/Ship)"
+    },
+    {
       "name": "office-hours",
       "kind": "vendored",
       "covers": "Frame fallback — ships with pilot, nothing to install"
