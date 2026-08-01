@@ -15,6 +15,13 @@ if [[ -z "$INPUT" ]] || ! printf '%s' "$INPUT" | jq empty 2>/dev/null; then
 fi
 TOOL=$(printf '%s' "$INPUT" | jq -r '.tool_name // .tool // empty' 2>/dev/null || echo "")
 
+# Anchor to the session's project directory. plan_in_worktree() searches
+# relative paths (docs/superpowers/plans, .planning, .pilot), so without this
+# the gate inspects whatever directory the hook process happened to inherit
+# and can never find a plan that exists.
+HOOK_CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // .project_dir // empty' 2>/dev/null || echo "")
+[[ -n "$HOOK_CWD" && -d "$HOOK_CWD" ]] && cd "$HOOK_CWD"
+
 # Pick the right line-count expression per tool shape. For MultiEdit we
 # concatenate every edit's new_string so the total counts toward the gate.
 case "$TOOL" in
