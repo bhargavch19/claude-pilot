@@ -66,7 +66,10 @@ ISERR=$(printf '%s' "$INPUT" | jq -r '(.tool_response.isError // false) | tostri
 INTR=$(printf '%s' "$INPUT" | jq -r '(.tool_response.interrupted // false) | tostring' 2>/dev/null || echo false)
 
 # Pass / fail determination from the ACTUAL output.
-RESULTS='(passed|PASS|✓|✔|All tests pass|tests passed|0 failed|0 failures|0 errors|ok [0-9]+|OK \(|pass [0-9]+|fail 0)'
+# `^OK$` covers Python unittest's clean pass, which prints a bare OK on its own
+# line — `OK \(` only matches the qualified form (`OK (skipped=1)`), so without
+# it a fully green unittest suite was scored as a failure.
+RESULTS='(passed|PASS|✓|✔|All tests pass|tests passed|0 failed|0 failures|0 errors|ok [0-9]+|^OK$|OK \(|pass [0-9]+|fail 0)'
 # A non-zero count of failures/errors is a definite fail, even when the same
 # line also says "N passed". `0 failed` won't match ([1-9] guard).
 FAILED='([1-9][0-9]*) (failed|failures|errors)|FAILED|✗|✖|Traceback \(most recent'
