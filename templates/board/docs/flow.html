@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Story Board — how the build flows</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --panel: #ffffff;
+    --ink: #16150f;
+    --dim: #5c584c;
+    --faint: #8b8578;
+    --rule: #e2ddd0;
+    --accent: #b4441a;
+    --pure: #1f6f4a;
+    --impure: #8a5a00;
+    --fatal: #a01b1b;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14140f; --panel: #1c1c16; --ink: #ece7d9; --dim: #a49e8d;
+      --faint: #756f60; --rule: #2f2e25; --accent: #ff6b35;
+      --pure: #6dd39b; --impure: #e0a33c; --fatal: #ff6b6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px 24px 96px;
+    background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 940px; margin: 0 auto; }
+  header { border-bottom: 2px solid var(--ink); padding-bottom: 20px; margin-bottom: 40px; }
+  h1 { font-size: 30px; line-height: 1.15; margin: 0 0 8px; letter-spacing: -0.02em; }
+  .sub { color: var(--dim); margin: 0; font-size: 15px; }
+  .meta { margin-top: 14px; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--accent); margin: 52px 0 16px; font-weight: 700;
+  }
+  h3 { font-size: 17px; margin: 32px 0 8px; letter-spacing: -0.01em; }
+  p { margin: 0 0 14px; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--panel);
+         border: 1px solid var(--rule); border-radius: 3px; padding: 1px 5px; }
+  .lead { font-size: 17px; color: var(--dim); }
+  .lead strong { color: var(--ink); }
+
+  .scroll { overflow-x: auto; margin: 0 0 20px; }
+  pre {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+    background: var(--panel); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    padding: 16px 18px; margin: 0; border-radius: 4px; min-width: max-content;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 520px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); font-weight: 600; }
+  td code { background: transparent; border: 0; padding: 0; }
+
+  .stage {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 6px; padding: 18px 20px; margin: 0 0 12px;
+  }
+  .stage-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .num {
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    background: var(--ink); color: var(--bg); border-radius: 3px; padding: 2px 7px;
+  }
+  .stage-title { font-weight: 650; font-size: 15px; }
+  .file { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .stage p { margin: 6px 0 0; color: var(--dim); font-size: 14px; }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;
+    padding: 2px 6px; border-radius: 3px; border: 1px solid currentColor;
+  }
+  .tag.pure { color: var(--pure); }
+  .tag.impure { color: var(--impure); }
+
+  .note {
+    border-left: 3px solid var(--accent); background: var(--panel);
+    padding: 12px 16px; margin: 20px 0; font-size: 14px; color: var(--dim);
+    border-radius: 0 4px 4px 0;
+  }
+  .note strong { color: var(--ink); }
+  .fatal { color: var(--fatal); font-weight: 650; }
+  footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--rule);
+           font-size: 12px; color: var(--faint); font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>Story Board — how the build flows</h1>
+  <p class="sub">What runs, in what order, and what happens when each step fails.</p>
+  <p class="meta">factory-board · generated from the code, not from the spec</p>
+</header>
+
+<p class="lead">
+  The board is a <strong>projection</strong> of two things it does not own: markdown
+  files in the repo, and live git state. Nothing here is hand-maintained, which is
+  why it cannot drift the way a hand-updated board does. Every stage below either
+  takes data and returns data, or shells out — never both.
+</p>
+
+<h2>The shape in one picture</h2>
+
+<div class="scroll"><pre>
+  BRD.md ────────────┐
+                     ├──▶ buildBoard() ──▶ board.json ──▶ (Phase 2 UI)
+  tdd/JYO-*.md ──────┤         ▲
+                     │         │
+  prompts/*.md ──────┘         │
+                               │
+  gh pr list ────────┐         │
+  git for-each-ref ──┼──▶ readGitFacts()
+  git show :.pilot/ ─┘
+</pre></div>
+
+<h2>Stages, in execution order</h2>
+
+<div class="stage">
+  <div class="stage-head">
+    <span class="num">01</span>
+    <span class="stage-title">Read git and GitHub facts</span>
+    <span class="tag impure">impure</span>
+    <span class="file">lib/github.mjs → readGitFacts()</span>
+  </div>
+  <p>
+    The only module in <code>lib/</code> that shells out, deliberately — one place
+    to get graceful degradation right instead of several. Runs
+    <code>gh pr list --state all --limit 500</code>, resolves a default branch,
+    lists <code>refs/heads/</code> <em>and</em> <code>refs/remotes/origin/</code>,
+    then reads pilot cycle files. Every call goes through <code>safeRun</code>,
+    which turns a rejection into a non-zero exit so no call site can throw.
+  </p>
+</div>
+
+<div class="stage">
+  <div class="stage-head">
+    <span class="num">02</span>
+    <span class="stage-title">Parse epics from the BRD</span>
+    <span class="tag pure">pure</span>
+    <span class="file">lib/epics.mjs → parseEpicsWithDuplicates()</span>
+  </div>
+  <p>
+    Slugs come from an explicit <code>&lt;!-- epic: slug --&gt;</code> marker, never
+    from the heading text. Heading text gets edited for readability; deriving slugs
+    from it would silently reparent every story under that heading. A repeated slug
+    is a mistake, not a request for two lanes — the first wins and the repeat warns.
+  </p>
+</div>
+
+<div class="stage">
+  <div class="stage-head">
+    <span class="num">03</span>
+    <span class="stage-title">Parse each Technical Design Document</span>
+    <span class="tag pure">pure</span>
+    <span class="file">lib/tdd.mjs → parseTdd()</span>
+  </div>
+  <p>
+    YAML frontmatter plus a markdown body. A leading UTF-8 BOM is stripped first —
+    Windows editors write one by default, and it used to push the file into
+    quarantine as "missing YAML frontmatter", an error naming the wrong cause.
+    A BOM appearing later is content and is left alone. Failures raise
+    <code>TddParseError</code>, which the caller catches; anything else is a real
+    bug and propagates.
+  </p>
+</div>
+
+<div class="stage">
+  <div class="stage-head">
+    <span class="num">04</span>
+    <span class="stage-title">Validate the story set</span>
+    <span class="tag pure">pure</span>
+    <span class="file">lib/validate.mjs → validateStories()</span>
+  </div>
+  <p>
+    Returns three buckets, and which bucket a problem lands in is the whole design:
+    <code>errors</code> stop the build, <code>invalid</code> quarantines one story
+    and the build carries on, <code>warnings</code> still render the story. One
+    developer omitting <code>points_initial</code> must not blank the board for the
+    whole team.
+  </p>
+</div>
+
+<div class="note">
+  <strong>Only two things are fatal</strong>, and both are genuinely ambiguous rather
+  than merely wrong: a <span class="fatal">duplicate id</span> (the build cannot guess
+  which file owns it) and a <span class="fatal">dependency cycle</span> (it cannot guess
+  which edge to drop). Cycle detection deliberately still spans quarantined stories —
+  a cycle is a property of the graph as written, and hiding it because one member also
+  had a bad points value would let it survive to the next build.
+</div>
+
+<div class="stage">
+  <div class="stage-head">
+    <span class="num">05</span>
+    <span class="stage-title">Derive each story's status</span>
+    <span class="tag pure">pure</span>
+    <span class="file">lib/status.mjs → deriveStatus()</span>
+  </div>
+  <p>
+    Takes the story and the git facts, returns a status and the reason for it.
+    Never asks the filesystem or the network anything. This is the module the
+    whole board's credibility rests on, and it is the one module the pilot
+    integration was forbidden to touch.
+  </p>
+</div>
+
+<div class="stage">
+  <div class="stage-head">
+    <span class="num">06</span>
+    <span class="stage-title">Attach pilot's cycle as a sub-status</span>
+    <span class="tag pure">pure</span>
+    <span class="file">lib/pilot.mjs → projectPilot() · build-board.mjs → resolvePilot()</span>
+  </div>
+  <p>
+    Enriches an in-flight card with the phase pilot's autopilot is actually in.
+    Never participates in status derivation — see below.
+  </p>
+</div>
+
+<div class="stage">
+  <div class="stage-head">
+    <span class="num">07</span>
+    <span class="stage-title">Assemble and write the artifact</span>
+    <span class="tag impure">impure</span>
+    <span class="file">scripts/build-board.mjs → buildBoard() + main()</span>
+  </div>
+  <p>
+    Reads prompt bodies (confined to the repo root first — a <code>prompt:</code>
+    value is author-controlled text and <code>../../../../.ssh/id_rsa</code> was
+    once read and embedded verbatim), derives the project key from the most
+    frequent id prefix, and writes <code>board.json</code>. The write is the last
+    statement on purpose: a failed build must leave no artifact rather than a
+    partial one, and must not overwrite a good previous build with wreckage.
+  </p>
+</div>
+
+<h2>Status precedence</h2>
+
+<p>
+  Evaluated top to bottom; the first match wins. Merging is terminal and
+  irreversible, so it outranks recency — an older merged PR beats a newer open one.
+</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Condition</th><th>Status</th><th>statusSource</th></tr>
+  <tr><td><code>status_override: blocked</code></td><td>blocked</td><td><code>override</code></td></tr>
+  <tr><td>any matched PR merged</td><td>done</td><td><code>pr#42 merged</code></td></tr>
+  <tr><td>newest matched PR open + draft</td><td>in_progress</td><td><code>pr#42 draft</code></td></tr>
+  <tr><td>newest matched PR open</td><td>in_review</td><td><code>pr#42 open</code></td></tr>
+  <tr><td>branch exists and is ahead</td><td>in_progress</td><td><code>branch JYO-4-x</code></td></tr>
+  <tr><td>otherwise</td><td>todo</td><td><code>no branch</code></td></tr>
+</table>
+</div>
+
+<p>
+  A PR matches a story if the story id appears in the head branch (bounded by
+  <code>/</code> or <code>-</code>, which is what stops <code>JYO-4</code> matching
+  <code>JYO-40</code>) or in the PR title. A closed-but-unmerged PR falls through
+  deliberately: the work was abandoned, so the branch is the better signal.
+</p>
+
+<h2>Pilot cycle resolution</h2>
+
+<p>
+  Optional. If a story's branch carries an autopilot cycle, the board publishes it
+  as <code>pilot</code> plus a <code>pilotSource</code> saying which tier answered.
+  Candidates come from both branch refs and PR head branches — refs alone missed
+  every story whose branch this clone never fetched.
+</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Tier</th><th>Read</th><th>pilotSource</th></tr>
+  <tr><td>1</td><td><code>git show origin/&lt;branch&gt;:.pilot/cycles/&lt;slug&gt;.json</code></td><td><code>remote:origin/&lt;branch&gt;</code></td></tr>
+  <tr><td>2</td><td><code>&lt;repo&gt;/.pilot/cycles/&lt;slug&gt;.json</code></td><td><code>local</code></td></tr>
+  <tr><td>3</td><td>nothing found</td><td><code>null</code></td></tr>
+</table>
+</div>
+
+<div class="note">
+  <strong>Pilot never overrides status.</strong> A cycle is one agent's self-report
+  and outlives the session that wrote it; status stays derived from facts other
+  people can independently see. A cycle claiming <code>done</code> cannot promote a
+  story that only has a branch — and a story that has actually merged
+  <strong>drops its cycle entirely</strong>, because shipped work outranks a
+  self-report. There is deliberately no staleness timeout: the cycle's own
+  <code>updated</code> timestamp travels in the artifact and the reader judges.
+</div>
+
+<h2>What triggers what</h2>
+
+<div class="scroll">
+<table>
+  <tr><th>Trigger</th><th>Runs</th><th>Effect</th></tr>
+  <tr>
+    <td><code>npm run start-story -- JYO-4</code></td>
+    <td><code>scripts/start-story.mjs</code></td>
+    <td>Reads the TDD, derives <code>&lt;id&gt;-&lt;slug&gt;</code>, checks the branch out. The frontmatter id wins over the typed one, and says so when they differ.</td>
+  </tr>
+  <tr>
+    <td><code>npm run build [repo] [--verbose]</code></td>
+    <td><code>scripts/build-board.mjs</code></td>
+    <td>The whole pipeline above. Writes <code>board.json</code>, prints one summary line to stdout.</td>
+  </tr>
+  <tr>
+    <td>Pull request opened</td>
+    <td><code>ci/branch-name.yml</code> → <code>ci/run-check.mjs</code></td>
+    <td>Rejects a branch that resolves to no story. <code>chore/</code>, <code>hotfix/</code> and <code>docs/</code> are exempt — case-sensitively, so a typo cannot bypass it.</td>
+  </tr>
+  <tr>
+    <td><code>npm test</code></td>
+    <td><code>node --test</code></td>
+    <td>209 tests, no framework, no bundler.</td>
+  </tr>
+</table>
+</div>
+
+<p>
+  There is deliberately <strong>no local git hook</strong> enforcing branch names.
+  Hooks are not cloned and <code>--no-verify</code> skips them, so they enforce
+  nothing you can rely on. CI is the real net; <code>start-story</code> is the
+  ergonomic path that means you rarely meet it.
+</p>
+
+<p>
+  All three entry points agree that a story id comes from <strong>frontmatter,
+  never from the filename</strong>. <code>start-story</code> prefers the
+  frontmatter id over the one you typed (and says so), <code>build-board</code>
+  quarantines an id-less story, and <code>run-check</code> skips one rather than
+  falling back to its filename — otherwise a branch could pass CI by naming a
+  story the board itself refuses to show.
+</p>
+
+<div class="note">
+  <strong>One caveat that is true of this repo only.</strong>
+  <code>ci/run-check.mjs</code> resolves <code>tdd/</code> as <code>../../tdd</code>,
+  which is correct once the board is vendored into an app repo at <code>board/</code>
+  — and wrong here, where the directory is <code>factory-board/</code> at the
+  workspace root. The check is right about where it expects to live; this repo is
+  the exception. Left as-is deliberately.
+</div>
+
+<h2>Seeing it run</h2>
+
+<p>
+  <code>BOARD_DEBUG=1</code> or <code>--verbose</code> narrates the pipeline to
+  <strong>stderr</strong> — stdout carries the summary line a caller may parse.
+  Silent otherwise. Tracing lives only at the two boundaries, orchestration and
+  the shell-out module; the pure modules stay untraced, and what they did is
+  visible in the traces on either side of them.
+</p>
+
+<div class="scroll"><pre>
+$ npm run build -- ./my-repo --verbose
+
+[board 001] git.begin cwd=./my-repo
+[board 002] gh.pr-list exit=0 limit=500
+[board 003] gh.prs count=12 capped=false
+[board 004] git.default-ref ref=origin/main
+[board 005] git.branches scanned=9 deduped=6
+[board 006] cycles.begin candidates=8
+[board 007] cycle.hit branch=JYO-4-chart tier=remote path=origin/JYO-4-chart:.pilot/cycles/JYO-4-chart.json
+[board 008] cycle.miss branch=main remote=... local=...
+[board 009] cycles.end found=1
+[board 010] git.end prs=12 branches=6 cycles=1 degraded=false warnings=0
+[board 011] build.begin repoRoot=./my-repo
+[board 012] brd.parsed bytes=1840 epics=3 duplicates=0
+[board 013] tdd.scanned dir=./my-repo/tdd files=11
+[board 014] tdd.broken file=tdd/JYO-9.md error="bad indentation (3:6)"
+[board 015] validate.done parsed=10 errors=0 invalid=1 warnings=2
+[board 016] story.quarantined file=tdd/JYO-7.md reason="missing required field points_initial"
+[board 017] story.status id=JYO-4 status=in_review source="pr#42 open" branch=JYO-4-chart
+[board 018] story.pilot id=JYO-4 source=remote:origin/JYO-4-chart phase=verify cycleStatus=fixing
+[board 019] build.end key=JYO stories=9 warnings=4 broken=2
+</pre></div>
+
+<h2>Degradation</h2>
+
+<p>
+  The governing rule is that <strong>every failure mode leaves a working board</strong>.
+  A dashboard that refuses to render because one file has a typo is worse than
+  useless to a team that depends on it.
+</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Failure</th><th>Behaviour</th></tr>
+  <tr><td>Malformed YAML in a TDD</td><td>That story lands in <code>broken[]</code>; build succeeds</td></tr>
+  <tr><td>Missing required field</td><td>That story is quarantined; the rest of the board builds</td></tr>
+  <tr><td>Unknown epic</td><td>Warning; story renders under Unassigned</td></tr>
+  <tr><td><code>gh</code> missing or unauthenticated</td><td>Degraded; status falls back to local branch state</td></tr>
+  <tr><td>Fewer than 500 PRs returned</td><td>Fine. At exactly 500, warns — a truncated page is indistinguishable from a full one</td></tr>
+  <tr><td>Missing or escaping prompt path</td><td>Warning; the story is untouched</td></tr>
+  <tr><td>Malformed pilot cycle</td><td><code>pilot: null</code> + warning naming the file</td></tr>
+  <tr><td class="fatal">Duplicate id</td><td class="fatal">Build fails, both paths printed, no artifact written</td></tr>
+  <tr><td class="fatal">Dependency cycle</td><td class="fatal">Build fails, the cycle printed</td></tr>
+</table>
+</div>
+
+<footer>
+  factory-board/docs/flow.html · read from lib/*.mjs, scripts/*.mjs and ci/*.mjs
+</footer>
+
+</div>
+</body>
+</html>

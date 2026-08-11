@@ -1,0 +1,19 @@
+name: branch name
+on: pull_request
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      # run-check.mjs imports lib/tdd.mjs, which depends on js-yaml — this
+      # step is why that dependency now needs installing in CI.
+      - name: Install board dependencies
+        working-directory: board
+        run: npm ci
+      - name: Check branch matches a story
+        run: node board/ci/run-check.mjs
+        env:
+          HEAD_REF: ${{ github.head_ref }}

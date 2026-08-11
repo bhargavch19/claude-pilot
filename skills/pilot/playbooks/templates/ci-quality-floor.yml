@@ -1,0 +1,52 @@
+# Pilot production-quality floor — drop into .github/workflows/quality-floor.yml
+# Blocking CI gate: tests+coverage, types, lint, SAST, secrets, dependency audit.
+# Adjust the JS/TS vs Python blocks to your stack; delete what doesn't apply.
+name: quality-floor
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks needs full history
+
+      # --- JS/TS stack ---
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck --if-present
+      - run: npm run lint --if-present
+      - run: npm test --if-present -- --coverage
+      - name: Dependency audit (high+)
+        run: npm audit --audit-level=high
+
+      # --- Python stack (uncomment if used) ---
+      # - uses: actions/setup-python@v5
+      #   with: { python-version: "3.12" }
+      # - run: pip install -e ".[dev]" mypy ruff pytest pip-audit
+      # - run: mypy .
+      # - run: ruff check . && ruff format --check .
+      # - run: pytest --cov --cov-fail-under=70
+      # - run: pip-audit
+
+      # --- Cross-language gates ---
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: SAST (semgrep)
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: auto

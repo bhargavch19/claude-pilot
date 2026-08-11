@@ -1,0 +1,36 @@
+# Pilot production-quality floor — drop into .pre-commit-config.yaml
+# Fast, blocking, local gates on changed files. Install with:
+#   pre-commit install
+# Cross-language secret scan + per-stack lint/type/test on commit.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks # blocks commit on any detected secret
+
+  # --- JS/TS: run project scripts via a local hook ---
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: typecheck (tsc)
+        entry: npm run typecheck --if-present
+        language: system
+        pass_filenames: false
+        files: \.(ts|tsx)$
+      - id: lint
+        name: lint (eslint+prettier)
+        entry: npm run lint --if-present
+        language: system
+        pass_filenames: false
+        files: \.(ts|tsx|js|jsx)$
+
+  # --- Python (uncomment if used) ---
+  # - repo: https://github.com/astral-sh/ruff-pre-commit
+  #   rev: v0.6.9
+  #   hooks:
+  #     - id: ruff
+  #     - id: ruff-format
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.11.2
+  #   hooks:
+  #     - id: mypy

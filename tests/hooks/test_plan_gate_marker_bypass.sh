@@ -19,7 +19,7 @@ set +e
 echo "$input" | "$HOOK" >/dev/null 2>&1
 rc=$?
 set -e
-[[ "$rc" -eq 1 ]] || { echo "FAIL: baseline should block (got $rc)"; exit 1; }
+[[ "$rc" -eq 2 ]] || { echo "FAIL: baseline should block (got $rc)"; exit 1; }
 echo "PASS: baseline blocks"
 
 # bypass-once → allow, then auto-consume.
@@ -35,7 +35,7 @@ set +e
 echo "$input" | "$HOOK" >/dev/null 2>&1
 rc=$?
 set -e
-[[ "$rc" -eq 1 ]] || { echo "FAIL: gate should block after consumption (got $rc)"; exit 1; }
+[[ "$rc" -eq 2 ]] || { echo "FAIL: gate should block after consumption (got $rc)"; exit 1; }
 echo "PASS: gate re-engages after one-shot consumed"
 
 # bypass-no-plan-once → allow, then auto-consume.
@@ -57,7 +57,7 @@ set +e
 echo "$input" | "$HOOK" >/dev/null 2>&1
 rc=$?
 set -e
-[[ "$rc" -eq 1 ]] || { echo "FAIL: gate should block after session marker removed (got $rc)"; exit 1; }
+[[ "$rc" -eq 2 ]] || { echo "FAIL: gate should block after session marker removed (got $rc)"; exit 1; }
 echo "PASS: removing session marker re-engages gate"
 
 echo "ALL marker bypass tests passed."

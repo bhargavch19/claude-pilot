@@ -55,6 +55,20 @@ jobs:
           scandir: 'dev'
           severity: warning
 
+  floor:
+    name: production-quality floor (dogfood)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for the secret scan
+
+      - name: Install jq
+        run: sudo apt-get update -qq && sudo apt-get install -y jq
+
+      - name: Run the executable floor (tests + secret scan + lint)
+        run: bash dev/floor-check.sh
+
   plugin-manifest:
     name: validate plugin.json + marketplace.json
     runs-on: ubuntu-latest
@@ -79,11 +93,15 @@ jobs:
 
       - name: mcpServers entries well-formed
         run: |
-          # Every entry needs a .command string. .args/env optional.
+          # Every entry is either a local command server (.command string) or
+          # a hosted server (.type=="http" with a .url string).
           jq -e '
             (.mcpServers // {})
             | to_entries
-            | all(.value.command and (.value.command | type == "string"))
+            | all(
+                (.value.command and (.value.command | type == "string"))
+                or (.value.type == "http" and (.value.url | type == "string"))
+              )
           ' .claude-plugin/plugin.json
           # If any entry uses args, all elements must be strings.
           jq -e '
@@ -93,3 +111,26 @@ jobs:
                 (.value.args // []) | type == "array" and all(. | type == "string")
               )
           ' .claude-plugin/plugin.json
+
+  vendored-board:
+    name: vendored story board (templates/board)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # templates/board is a COPY of appbuild-structure/factory-board, scaffolded
+      # into new repos by Bootstrap step 6. Nothing detects the original moving
+      # ahead — see templates/board/VENDORED.md. This job proves only that the
+      # copy passes its own suite, which is the difference between shipping code
+      # we have run and code we have merely pasted.
+      - name: Install board dependencies
+        working-directory: templates/board
+        run: npm ci
+
+      - name: Run the board suite
+        working-directory: templates/board
+        run: npm test

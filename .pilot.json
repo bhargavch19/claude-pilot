@@ -1,0 +1,3 @@
+{
+  "test_patterns": ["bash tests/run.sh", "tests/run.sh"]
+}

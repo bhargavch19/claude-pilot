@@ -2,6 +2,8 @@
 
 The default flow for a new feature. Pilot follows this unless the user's prompt clearly indicates a different phase (debug, refactor, etc.).
 
+> **Autopilot automates this exact loop.** With `autopilot` / hands-off intent, pilot conducts every step below without per-phase prompting, pausing only at two checkpoints — plan approval (after step 4) and ship approval (before step 10) — with a bounded verify→fix loop in between. Driver spec: `autopilot.md`; enforcement: `hooks/autopilot-gate.sh` (G16).
+
 ## The loop
 
 ```
@@ -15,6 +17,10 @@ Recall → Frame → PRD → Plan → Tracer → TDD → AFK execute → Verify 
 ### 2. Frame
 - Code: `grill-with-docs` (challenges plan against domain model + ADRs).
 - Non-code: `grill-me`.
+- Run the **clarify scan** (`playbooks/requirements.md` §1): scope boundary,
+  inputs/outputs, error behavior, non-functionals, integration points, done
+  criteria. Material ambiguity → one focused question; the rest → stated
+  assumptions.
 - Output: shared understanding of what + why + success criteria.
 
 ### 3. PRD
@@ -25,6 +31,12 @@ Recall → Frame → PRD → Plan → Tracer → TDD → AFK execute → Verify 
 - `superpowers:writing-plans` — bite-sized TDD tasks.
 - Or `to-issues` — splits PRD into independently-grabbable tracer-bullet vertical slices.
 - Single session: writing-plans. Multi-session/multi-day: GSD `gsd-plan-phase`.
+- **Write the AC ledger**: distill the plan's acceptance criteria into
+  `.pilot/acceptance.md` as `- [ ]` checkboxes with stable IDs (`AC-001`),
+  each linked to the task that delivers it and the test that proves it —
+  then run the analyze coverage check before the first Build edit
+  (`playbooks/requirements.md` §2–3). The verify-gate blocks "done" while
+  any box is unchecked — this is how requirements can't silently drop.
 
 ### 5. Tracer
 - Pick the thinnest end-to-end vertical slice that delivers value.
@@ -37,12 +49,14 @@ Recall → Frame → PRD → Plan → Tracer → TDD → AFK execute → Verify 
 
 ### 7. AFK execute
 - For multi-slice plans, `superpowers:subagent-driven-development` dispatches a fresh subagent per slice.
-- Bhargav reviews diff between slices (G6).
+- The user reviews the diff between slices (G6).
 
 ### 8. Verify
 - `superpowers:verification-before-completion` — runs the test suite, captures output, asserts green.
 - Or `gsd-verify-work` for GSD projects.
-- Hook `verify-gate.sh` warns if "done" claimed without verify output.
+- Hook `verify-gate.sh` **blocks** a "done" claim unless a real test run was
+  captured this session AND `.pilot/acceptance.md` (when present) is fully
+  checked. Check each AC off as its evidence lands.
 
 ### 9. Review
 - `superpowers:requesting-code-review` — independent read.
@@ -56,6 +70,9 @@ Recall → Frame → PRD → Plan → Tracer → TDD → AFK execute → Verify 
 ### 11. Capture
 - `claude-mem` auto-captures observations.
 - For GSD: `gsd-extract-learnings`.
+- **Graphify the delta**: run `graphify` on the files changed this cycle
+  (`git diff --name-only <base>...HEAD`) so the new code is in the knowledge
+  graph before the next debugging session needs it.
 
 ## Smart vs dumb context zones (per Pocock)
 

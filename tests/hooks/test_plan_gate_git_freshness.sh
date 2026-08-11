@@ -29,7 +29,7 @@ set +e
 mk_input | "$HOOK" >/dev/null 2>&1
 rc=$?
 set -e
-[[ "$rc" -eq 1 ]] || { echo "FAIL: no plan should block; got $rc"; exit 1; }
+[[ "$rc" -eq 2 ]] || { echo "FAIL: no plan should block; got $rc"; exit 1; }
 echo "PASS: no plan blocks"
 
 # Case 2: plan committed on a feature branch (since merge-base) → allow.

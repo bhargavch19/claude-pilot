@@ -14,7 +14,7 @@ cat > "$TMP/claude" <<'EOF'
 echo "$@" >> "$CLAUDE_MOCK_LOG"
 case "$2" in
   get) exit "${CLAUDE_GET_EXIT:-1}" ;;   # 1 = not registered (fresh state)
-  add|remove) exit 0 ;;
+  add|add-json|remove) exit 0 ;;
 esac
 exit 0
 EOF
@@ -29,8 +29,11 @@ grep -q 'mcp add --scope user context7 npx -- -y @upstash/context7-mcp@2.2.5' "$
   || { echo "FAIL: context7 add args wrong"; cat "$CLAUDE_MOCK_LOG"; exit 1; }
 grep -q 'mcp add --scope user playwright npx -- -y @playwright/mcp@0.0.75' "$CLAUDE_MOCK_LOG" \
   || { echo "FAIL: playwright add args wrong"; cat "$CLAUDE_MOCK_LOG"; exit 1; }
-grep -q 'mcp add --scope user github npx -- -y @modelcontextprotocol/server-github@2025.4.8' "$CLAUDE_MOCK_LOG" \
-  || { echo "FAIL: github add args wrong"; cat "$CLAUDE_MOCK_LOG"; exit 1; }
+# github is a remote (http) entry → registered via add-json with the URL.
+grep -qF 'mcp add-json --scope user github' "$CLAUDE_MOCK_LOG" \
+  || { echo "FAIL: github should register via add-json"; cat "$CLAUDE_MOCK_LOG"; exit 1; }
+grep -qF 'https://api.githubcopilot.com/mcp' "$CLAUDE_MOCK_LOG" \
+  || { echo "FAIL: github add-json missing hosted URL"; cat "$CLAUDE_MOCK_LOG"; exit 1; }
 echo "PASS: all 3 declared MCPs added at user scope with correct args"
 
 # --- idempotency: `get` succeeds, so wire should skip every entry ---
@@ -51,7 +54,7 @@ case "$2" in
     case "$3" in
       context7)  echo "command: npx -y @upstash/context7-mcp@2.2.5" ;;
       playwright) echo "command: npx -y @playwright/mcp@0.0.75" ;;
-      github)    echo "command: npx -y @modelcontextprotocol/server-github@2025.4.8" ;;
+      github)    echo "url: https://api.githubcopilot.com/mcp" ;;
     esac
     exit 0 ;;
   remove) exit 0 ;;

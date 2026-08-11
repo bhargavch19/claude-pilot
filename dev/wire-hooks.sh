@@ -31,23 +31,44 @@ fi
 # still catches it so we don't accumulate duplicates.
 jq --arg pd "$PLUGIN_DIR" '
   def is_pilot($name): .command? // "" | endswith("/hooks/" + $name);
-  def drop_pilot($name): map(select((.hooks[]? | is_pilot($name)) | not));
+  def drop_pilot($name): map(select(([.hooks[]? | is_pilot($name)] | any) | not));
   .hooks = (.hooks // {}) |
-  .hooks.PreToolUse = ((.hooks.PreToolUse // []) | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh"))
+  .hooks.PreToolUse = ((.hooks.PreToolUse // []) | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh") | drop_pilot("safety-gate.sh") | drop_pilot("pretooluse-heartbeat.sh"))
     + [
+        {"hooks":[{"type":"command","command":($pd + "/hooks/pretooluse-heartbeat.sh")}]},
         {"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":($pd + "/hooks/plan-gate.sh")}]},
-        {"matcher":"Bash","hooks":[{"type":"command","command":($pd + "/hooks/pre-commit.sh")}]}
+        {"matcher":"Bash","hooks":[
+          {"type":"command","command":($pd + "/hooks/safety-gate.sh")},
+          {"type":"command","command":($pd + "/hooks/plan-gate.sh")},
+          {"type":"command","command":($pd + "/hooks/pre-commit.sh")}
+        ]}
       ] |
-  .hooks.PostToolUse = ((.hooks.PostToolUse // []) | drop_pilot("log-skill-invocation.sh"))
-    + [{"matcher":"Skill","hooks":[{"type":"command","command":($pd + "/hooks/log-skill-invocation.sh")}]}] |
-  .hooks.Stop = ((.hooks.Stop // []) | drop_pilot("verify-gate.sh"))
-    + [{"hooks":[{"type":"command","command":($pd + "/hooks/verify-gate.sh")}]}] |
+  .hooks.PostToolUse = ((.hooks.PostToolUse // []) | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh") | drop_pilot("autoformat.sh"))
+    + [
+        {"matcher":"Skill","hooks":[{"type":"command","command":($pd + "/hooks/log-skill-invocation.sh")}]},
+        {"matcher":"Bash","hooks":[{"type":"command","command":($pd + "/hooks/capture-test-run.sh")}]},
+        {"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":($pd + "/hooks/autoformat.sh")}]}
+      ] |
+  .hooks.Stop = ((.hooks.Stop // []) | drop_pilot("verify-gate.sh") | drop_pilot("autopilot-gate.sh"))
+    + [{"hooks":[
+        {"type":"command","command":($pd + "/hooks/verify-gate.sh")},
+        {"type":"command","command":($pd + "/hooks/autopilot-gate.sh")}
+      ]}] |
   .hooks.SubagentStop = ((.hooks.SubagentStop // []) | drop_pilot("verify-gate.sh"))
     + [{"hooks":[{"type":"command","command":($pd + "/hooks/verify-gate.sh")}]}] |
-  .hooks.SessionStart = ((.hooks.SessionStart // []) | drop_pilot("sessionstart-banner.sh"))
-    + [{"hooks":[{"type":"command","command":($pd + "/hooks/sessionstart-banner.sh")}]}] |
+  .hooks.SessionStart = ((.hooks.SessionStart // []) | drop_pilot("sessionstart-banner.sh") | drop_pilot("integrity-check.sh") | drop_pilot("memory-surface.sh"))
+    + [{"hooks":[
+        {"type":"command","command":($pd + "/hooks/sessionstart-banner.sh")},
+        {"type":"command","command":($pd + "/hooks/integrity-check.sh")},
+        {"type":"command","command":($pd + "/hooks/memory-surface.sh")}
+      ]}] |
   .hooks.PreCompact = ((.hooks.PreCompact // []) | drop_pilot("precompact-anchor.sh"))
-    + [{"hooks":[{"type":"command","command":($pd + "/hooks/precompact-anchor.sh")}]}]
+    + [{"hooks":[{"type":"command","command":($pd + "/hooks/precompact-anchor.sh")}]}] |
+  .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) | drop_pilot("route-advisor.sh") | drop_pilot("approval-capture.sh"))
+    + [{"hooks":[
+        {"type":"command","command":($pd + "/hooks/route-advisor.sh")},
+        {"type":"command","command":($pd + "/hooks/approval-capture.sh")}
+      ]}]
 ' "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 
 echo "Wired pilot hooks (dev install) into $SETTINGS:"
