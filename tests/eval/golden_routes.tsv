@@ -1,0 +1,41 @@
+# Golden routing set for the deterministic route-advisor.
+# Format: <prompt><TAB><expected skill token, or NONE for silent/fuzzy>
+# Scored binary 0/1 (exact: expected token present in the computed route, or
+# advisor stays silent for NONE). Criteria-based, not LLM-judged.
+# Run: bash dev/eval-routes.sh
+#
+# --- distinctive literal names → deterministic hard-route ---
+use tdd for this feature	tdd
+write a red-green-refactor test with tdd	tdd
+map the repo with graphify	graphify
+turn this codebase into a graph using graphify	graphify
+drive the browser with playwright	playwright
+run migration-safety on this schema change	migration-safety
+walk the pre-deploy-checklist before release	pre-deploy-checklist
+start post-deploy-monitor after the deploy	post-deploy-monitor
+use frontend-design for the landing page	frontend-design:frontend-design
+let's improve-codebase-architecture here	improve-codebase-architecture
+run gsd-debug on this failure	gsd-debug
+do the gsd-plan-phase step	gsd-plan-phase
+use superpowers:dispatching-parallel-agents on these files	superpowers:dispatching-parallel-agents
+paul:init the project	paul:init
+run paul:plan then review	paul:plan
+do paul:apply now	paul:apply
+paul:unify to close the loop	paul:unify
+# --- common words / fuzzy intent → advisor stays silent ---
+fix the login bug	NONE
+review my code	NONE
+build a dashboard	NONE
+ship it to production	NONE
+run the tests	NONE
+help me plan the work	NONE
+clean up this function	NONE
+fan out these tasks in parallel	NONE
+# --- novel / unusual phrasings the advisor must defer to the model (no hard-route) ---
+make this thing less janky	NONE
+the gizmo is acting weird again	NONE
+can you tidy the whole shebang	NONE
+wire up the frobnicator	NONE
+autopilot this: add dark mode	autopilot
+take it end to end on autopilot	autopilot
+the autopilots in planes are interesting	NONE

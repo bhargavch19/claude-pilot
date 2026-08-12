@@ -1,6 +1,6 @@
 {
   "name": "pilot",
-  "version": "0.7.0",
+  "version": "0.10.0",
   "description": "Unified AI coding conductor — auto-routes intent to the right skill (grill, plan, TDD, debug, verify, ship), enforces CLAUDE.md quality gates, and stays extensible via registry.md.",
   "author": {
     "name": "Bhargav Chelluboina"
@@ -18,12 +18,23 @@
       "args": ["-y", "@playwright/mcp@0.0.75"]
     },
     "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github@2025.4.8"]
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_TOKEN}"
+      }
     }
   },
   "hooks": {
     "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pretooluse-heartbeat.sh"
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
@@ -36,6 +47,14 @@
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/safety-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/plan-gate.sh"
+          },
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-commit.sh"
@@ -52,6 +71,24 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/log-skill-invocation.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/capture-test-run.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/autoformat.sh"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -60,6 +97,10 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/verify-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/autopilot-gate.sh"
           }
         ]
       }
@@ -80,6 +121,14 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/sessionstart-banner.sh"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/integrity-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/memory-surface.sh"
           }
         ]
       }
@@ -100,6 +149,11 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/route-advisor.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/approval-capture.sh",
             "timeout": 5
           }
         ]

@@ -36,7 +36,7 @@ PROMPT_LC=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]')
 
 # Distinctive single-word skill names that are safe to hard-route on even
 # without a hyphen/colon/digit (not English words).
-SAFE_SINGLE=" tdd graphify caveman playwright "
+SAFE_SINGLE=" tdd graphify caveman playwright autopilot "
 
 seen=" "
 chain=""
@@ -83,6 +83,19 @@ $(awk -F'|' '
 ' "$REG")
 EOF
 
+# PAUL is a first-class spine namespace: any literal `paul:<cmd>` the user types
+# is unambiguous intent and routes deterministically — even if that specific
+# command isn't enumerated in registry.md (PAUL ships ~25 of them; the registry
+# only lists paul:init at Bootstrap). The colon makes it impossible to confuse
+# with prose, so this is safe. Bare "paul" stays deferred to the model.
+for tok in $(printf '%s' "$PROMPT_LC" | grep -oE 'paul:[a-z][a-z0-9-]+' | sort -u); do
+  case "$seen" in *" $tok "*) continue ;; esac
+  seen="$seen$tok "
+  [ "$nchain" -gt 0 ] && chain="$chain; "
+  chain="$chain PAUL → \`$tok\`"
+  nchain=$((nchain + 1))
+done
+
 # Project-state spine (deterministic): .planning/ → GSD, .paul/ → PAUL.
 GITROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 BASE="${GITROOT:-$PWD}"
@@ -93,15 +106,35 @@ elif [ -d "$BASE/.paul" ]; then
   SPINE="PAUL is active (.paul/ present) — use paul:* and close the loop with paul:unify."
 fi
 
-# Nothing deterministic to say → stay silent, let the model route fuzzily.
-[ "$nchain" -eq 0 ] && [ -z "$SPINE" ] && exit 0
-
-MSG="Pilot deterministic route (computed from registry.md, not inferred):"
-if [ "$nchain" -gt 0 ]; then
-  MSG="$MSG you literally named — $chain. Invoke these directly via the Skill tool (literal-name route); sequence as a phase chain if more than one."
+# Feedback loop (Phase 8): if this repo's recent first-pass-verified rate is
+# poor, nudge — verify-gate writes outcomes.jsonl, the router reads it. This is
+# behavioral feedback (a reminder), not auto-rerouting.
+NUDGE=""
+LEDGER="$CACHE_DIR/outcomes.jsonl"
+if [ -f "$LEDGER" ]; then
+  recent=$(grep -F "\"repo\":\"$BASE\"" "$LEDGER" 2>/dev/null | tail -10 || true)
+  total=$(printf '%s\n' "$recent" | grep -c . 2>/dev/null || echo 0)
+  if [ "${total:-0}" -ge 3 ]; then
+    blocked=$(printf '%s' "$recent" | grep -c '"result":"blocked"' 2>/dev/null || echo 0)
+    if [ "${blocked:-0}" -gt 0 ] && [ $((blocked * 2)) -ge "$total" ]; then
+      NUDGE="Feedback: verify-gate blocked $blocked of the last $total \"done\" claims in this repo — run the tests and let the result be captured before claiming done."
+    fi
+  fi
 fi
-[ -n "$SPINE" ] && MSG="$MSG Spine: $SPINE"
-MSG="$MSG Any other (unnamed/ambiguous) intent in the prompt is left to your judgment using registry.md."
+
+# Nothing deterministic to say and no feedback → stay silent.
+[ "$nchain" -eq 0 ] && [ -z "$SPINE" ] && [ -z "$NUDGE" ] && exit 0
+
+MSG=""
+if [ "$nchain" -gt 0 ] || [ -n "$SPINE" ]; then
+  MSG="Pilot deterministic route (computed from registry.md, not inferred):"
+  [ "$nchain" -gt 0 ] && MSG="$MSG literal skill name(s) present — $chain. If the prompt is ASKING for that work, invoke them via the Skill tool (sequence as a phase chain if more than one). If a name is only mentioned descriptively (talked about, not requested), ignore that hit and route on actual intent."
+  [ -n "$SPINE" ] && MSG="$MSG Spine: $SPINE"
+  MSG="$MSG Any other (unnamed/ambiguous) intent in the prompt is left to your judgment using registry.md."
+fi
+if [ -n "$NUDGE" ]; then
+  if [ -n "$MSG" ]; then MSG="$MSG $NUDGE"; else MSG="pilot — $NUDGE"; fi
+fi
 
 jq -cn --arg c "$MSG" '{hookSpecificOutput:{hookEventName:"UserPromptSubmit", additionalContext:$c}}'
 exit 0

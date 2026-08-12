@@ -21,17 +21,17 @@ cp "$SETTINGS" "$SETTINGS.bak.$(date +%s)"
 jq --arg pd "$PLUGIN_DIR" '
   # Match by basename only so stale-path entries get cleaned up too.
   def is_pilot($name): .command? // "" | endswith("/hooks/" + $name);
-  def drop_pilot($name): map(select((.hooks[]? | is_pilot($name)) | not));
+  def drop_pilot($name): map(select(([.hooks[]? | is_pilot($name)] | any) | not));
 
   if .hooks == null then . else
     .hooks |=
-      ( (.PreToolUse   // [] | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh")) as $p
-      | (.PostToolUse  // [] | drop_pilot("log-skill-invocation.sh"))                    as $po
-      | (.Stop         // [] | drop_pilot("verify-gate.sh"))                             as $s
+      ( (.PreToolUse   // [] | drop_pilot("plan-gate.sh") | drop_pilot("pre-commit.sh") | drop_pilot("safety-gate.sh") | drop_pilot("pretooluse-heartbeat.sh")) as $p
+      | (.PostToolUse  // [] | drop_pilot("log-skill-invocation.sh") | drop_pilot("capture-test-run.sh") | drop_pilot("autoformat.sh")) as $po
+      | (.Stop         // [] | drop_pilot("verify-gate.sh") | drop_pilot("autopilot-gate.sh")) as $s
       | (.SubagentStop // [] | drop_pilot("verify-gate.sh"))                             as $sa
-      | (.SessionStart // [] | drop_pilot("sessionstart-banner.sh"))                     as $ss
+      | (.SessionStart // [] | drop_pilot("sessionstart-banner.sh") | drop_pilot("integrity-check.sh") | drop_pilot("memory-surface.sh")) as $ss
       | (.PreCompact   // [] | drop_pilot("precompact-anchor.sh"))                       as $pc
-      | (.UserPromptSubmit // [] | drop_pilot("route-advisor.sh"))                       as $up
+      | (.UserPromptSubmit // [] | drop_pilot("route-advisor.sh") | drop_pilot("approval-capture.sh")) as $up
       | { PreToolUse: $p, PostToolUse: $po, Stop: $s, SubagentStop: $sa, SessionStart: $ss, PreCompact: $pc, UserPromptSubmit: $up }
         + (del(.PreToolUse, .PostToolUse, .Stop, .SubagentStop, .SessionStart, .PreCompact, .UserPromptSubmit))
       )

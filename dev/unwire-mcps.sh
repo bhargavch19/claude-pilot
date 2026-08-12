@@ -18,18 +18,24 @@ if ! command -v claude >/dev/null 2>&1; then
   exit 1
 fi
 
-jq -r '.mcpServers // {} | to_entries[] | [.key, .value.command, ((.value.args // []) | join(" "))] | @tsv' \
+# Match signature: stdio entries → "command args"; remote entries → the URL.
+jq -r '.mcpServers // {} | to_entries[]
+       | [.key,
+          (if (.value.type // "stdio") == "stdio"
+           then ((.value.command // "") + " " + ((.value.args // []) | join(" ")))
+           else (.value.url // "") end)]
+       | @tsv' \
   "$MANIFEST" \
-  | while IFS=$'\t' read -r name cmd args; do
+  | while IFS=$'\t' read -r name sig; do
       [[ -n "$name" ]] || continue
       if ! claude mcp get "$name" >/dev/null 2>&1; then
         echo "SKIP $name (not registered)"
         continue
       fi
-      # Guard: only remove if the registered command line still matches
+      # Guard: only remove if the registered command/URL still matches
       # what plugin.json declared. Avoids stomping on a user override.
       info=$(claude mcp get "$name" 2>/dev/null || true)
-      if printf '%s' "$info" | grep -qF "$cmd $args"; then
+      if printf '%s' "$info" | grep -qF "$sig"; then
         if claude mcp remove "$name" >/dev/null 2>&1; then
           echo "REMOVED $name"
         else

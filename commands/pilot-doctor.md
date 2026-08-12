@@ -10,7 +10,7 @@ Run a top-to-bottom pilot health check. Steps:
 2. **Hook scripts executable + present** — run:
    ```bash
    ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}"
-   for h in plan-gate.sh pre-commit.sh verify-gate.sh sessionstart-banner.sh precompact-anchor.sh route-advisor.sh log-skill-invocation.sh; do
+   for h in plan-gate.sh pre-commit.sh safety-gate.sh pretooluse-heartbeat.sh verify-gate.sh autopilot-gate.sh capture-test-run.sh autoformat.sh sessionstart-banner.sh integrity-check.sh memory-surface.sh precompact-anchor.sh route-advisor.sh approval-capture.sh log-skill-invocation.sh; do
      if [[ -x "$ROOT/hooks/$h" ]]; then
        echo "✓ $h"
      elif [[ -f "$ROOT/hooks/$h" ]]; then
@@ -33,7 +33,7 @@ Run a top-to-bottom pilot health check. Steps:
      | .hooks[]?
      | "\($k)\t\(.command)"
    ' "$HOME/.claude/settings.json" 2>/dev/null \
-     | grep -E '/hooks/(plan-gate|pre-commit|verify-gate|sessionstart-banner|precompact-anchor|route-advisor|log-skill-invocation)\.sh' \
+     | grep -E '/hooks/(plan-gate|pre-commit|safety-gate|pretooluse-heartbeat|verify-gate|autopilot-gate|capture-test-run|autoformat|sessionstart-banner|integrity-check|memory-surface|precompact-anchor|route-advisor|approval-capture|log-skill-invocation)\.sh' \
      | while IFS=$'\t' read -r event cmd; do
          path="${cmd%% *}"  # strip any args
          path="${path#\"}"; path="${path%\"}"  # strip quotes if present
@@ -46,9 +46,29 @@ Run a top-to-bottom pilot health check. Steps:
          fi
        done
    # If nothing matched at all:
-   jq -e '.hooks // {} | [.. | objects | .command? // empty] | any(test("/hooks/(plan-gate|pre-commit|verify-gate|sessionstart-banner|precompact-anchor|route-advisor|log-skill-invocation)\\.sh"))' \
+   jq -e '.hooks // {} | [.. | objects | .command? // empty] | any(test("/hooks/(plan-gate|pre-commit|safety-gate|pretooluse-heartbeat|verify-gate|autopilot-gate|capture-test-run|autoformat|sessionstart-banner|integrity-check|memory-surface|precompact-anchor|route-advisor|approval-capture|log-skill-invocation)\\.sh"))' \
      "$HOME/.claude/settings.json" >/dev/null 2>&1 \
      || echo '(no pilot hooks wired — run dev/wire-hooks.sh or install via marketplace)'
+   ```
+
+3.5. **PreToolUse liveness (issue #31250)** — PreToolUse hooks can fail
+   silently; if they stop firing, plan-gate/safety-gate quietly stop
+   protecting. `pretooluse-heartbeat.sh` records each PreToolUse fire. Because
+   this very command runs via the Bash tool, a *fresh* heartbeat proves the
+   chain is live; a missing/stale one means PreToolUse is not firing:
+   ```bash
+   MARK="${XDG_CACHE_HOME:-$HOME/.cache}/pilot/pretooluse-last"
+   if [[ -f "$MARK" ]]; then
+     ts=$(cut -f1 "$MARK"); now=$(date +%s)
+     age=$(( now - ts ))
+     if (( age <= 120 )); then
+       echo "✓ PreToolUse fired ${age}s ago (tool: $(cut -f2 "$MARK")) — chain live"
+     else
+       echo "⚠ PreToolUse last fired ${age}s ago — running this command should have refreshed it; PreToolUse may be disabled (issue #31250)"
+     fi
+   else
+     echo "⚠ no PreToolUse heartbeat — hooks may not be firing (issue #31250); re-wire with dev/wire-hooks.sh or reinstall the plugin"
+   fi
    ```
 
 4. **MCP servers** — for each entry in plugin.json's mcpServers, verify the

@@ -26,36 +26,43 @@ into `~/.claude/settings.json` using absolute paths.
 
 | # | Rule | Hook script | Trigger | Action |
 |---|---|---|---|---|
-| G1 | Plan before coding (>20 LOC) | `hooks/plan-gate.sh` | `PreToolUse: Edit\|Write` | Block when `new_string`/`content` > 20 lines and no plan found for the current branch. |
+| G1 | Plan before coding (>20 LOC) | `hooks/plan-gate.sh` | `PreToolUse: Edit\|Write\|MultiEdit\|NotebookEdit` **and** `Bash` | Block when a write exceeds 20 lines and no plan exists for the branch — for the edit tools (by `new_string`/`content`) **and** for code written through Bash (`cat >`/`tee`/heredoc to a source file), so shell-authored files can't slip past. |
 | G3 | Atomic commits, conventional messages | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on missing `feat:`/`fix:`/`chore:`/... prefix or WIP message. Skipped for HEREDOC / `-F file` / editor-mode commits. |
 | G7 | TS strict, no `any` without comment | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on `: any` in staged TS/TSX without `// any: <reason>` on same line. |
 | G8 | No dead code, no `console.log` | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on `console.log(` in staged TS/JS/TSX/JSX. |
 | G12 | No `sleep`/timeout patches for flaky tests | `hooks/pre-commit.sh` | `PreToolUse: Bash` matching `git commit` | Block on new `sleep(` or `setTimeout(` in staged files matching `*test*`/`*spec*`. |
-| G14 | Verify before claiming done | `hooks/verify-gate.sh` | `Stop` | Warn (no block) when transcript contains a "done"/"ready"/"passing" claim without test-runner output evidence. |
+| G14 | Verify before claiming done | `hooks/verify-gate.sh` (+ `hooks/capture-test-run.sh`) | `Stop`, `SubagentStop` (capture: `PostToolUse: Bash`) | **Block** a "done"/"ready"/"passing" claim on changed source unless a real test run was captured this session AND `.pilot/acceptance.md` (when present) has no unchecked `- [ ]` items. Downgrades to warn via bypass markers / `.pilot.json {"verify_gate":"warn"}`; auto-releases after 2 blocks. |
+| G15 | Block destructive commands (safety) | `hooks/safety-gate.sh` | `PreToolUse: Bash` | **Fail-closed block (exit 2)** of `rm` recursive-force on home/root/system paths, destructive git (force push, `reset --hard`, `clean -f`, `branch -D`, `checkout/restore .`), and secret reads/exfil (`.env`, private keys, cloud creds). Safe variants pass (`rm -rf ./build`, `--force-with-lease`, `cat .env.example`). Honors bypass markers; `.pilot.json {"safety_gate":"warn"\|"off"}` downgrades/disables. |
+| G16 | Autopilot cycle integrity | `hooks/autopilot-gate.sh` + `hooks/approval-capture.sh` | `Stop` (gate) + `UserPromptSubmit` (witness) | While the branch-scoped cycle file is active and mid-phase, **block** ending the turn and direct the conductor to advance per `autopilot.md`. Checkpoint states (`awaiting_plan_approval`, `awaiting_ship_approval`) and terminal states (`done`/`halted`/`aborted`) allow the stop. Checkpoint approvals are **machine-witnessed**: approval-capture records the user's actual approving prompt (or `/pilot-approve`) as a marker; the gate flags any checkpoint flag lacking its witness as self-approval and sends the conductor back to re-ask. Honors bypass markers; `.pilot.json {"autopilot":{"gate":"warn"\|"off","approval_witness":"off"}}` downgrades/disables; anti-traps after 3 consecutive same-state blocks. |
+| —  | Auto-format edited files (hygiene, not a guard) | `hooks/autoformat.sh` | `PostToolUse: Edit\|Write\|MultiEdit` | Format the edited file with the formatter the repo **already configures** (prettier/ruff/black/gofmt/rustfmt). No config → no-op. Disable with `.pilot.json {"autoformat":"off"}`; honors bypass markers. |
+| —  | Project-hook integrity warning (security) | `hooks/integrity-check.sh` | `SessionStart` | Warn when the opened project ships its own hooks in `.claude/settings*.json` (the SessionStart-hook RCE vector). Lists each foreign hook command to vet; pilot's own global hooks are not flagged. Informational, never blocks. |
+| —  | PreToolUse liveness heartbeat (diagnostics) | `hooks/pretooluse-heartbeat.sh` | `PreToolUse` (all tools) | Record each PreToolUse fire (ts + tool) so `/pilot-doctor` can prove the chain is live — PreToolUse hooks can fail silently (issue #31250). Never blocks; near-zero cost. |
+| —  | Persistent project memory (continuity) | `hooks/memory-surface.sh` | `SessionStart` | Surface `.pilot/memory.md` (durable decisions/conventions/gotchas) so context survives across sessions. Written via `/pilot-remember`; silent when absent; digest capped. |
 | —  | Routing telemetry (observability, not a guard) | `hooks/log-skill-invocation.sh` | `PostToolUse: Skill` | Append one line per Skill invocation to `~/.cache/pilot/routing.log` (capped at 500 lines). Surfaced by `/pilot-status`. |
 
-`G15` (dangerous git ops — `push --force`, `reset --hard`, `clean -f`,
-`branch -D`) is not part of pilot itself. Install the dedicated
-`git-guardrails-claude-code` skill if you want this layer.
+`G15` ships with pilot as `hooks/safety-gate.sh` (it folds in the
+`git-guardrails-claude-code` posture and adds `rm -rf` + secret protection).
+The standalone `git-guardrails-claude-code` skill is still compatible if you
+want a second, independent layer.
 
 ## Plan-gate hook (G1) — detailed behavior
 
 `hooks/plan-gate.sh` runs on `PreToolUse: Edit|Write`:
 
 1. Skip when `Edit`/`Write` content is ≤ 20 lines.
-2. **Bypass check** — short-circuit if any of:
+2. **Bypass check** — markers only (no transcript grep — see Bypass
+   mechanisms below); short-circuit if any of:
    - marker `${XDG_CACHE_HOME:-~/.cache}/pilot/bypass-once`
      (consumed after this gate fire), or
    - marker `bypass-no-plan-once` (consumed), or
-   - marker `bypass-session` (persists until `/pilot-back-on`), or
-   - last user message contains `pilot off`, `pilot off rails`, or
-     `pilot --no-plan`, or
-   - most-recent off-rails toggle is "off" (not yet flipped back on).
+   - marker `bypass-session` (persists until `/pilot-back-on`).
 3. **Plan existence** — allow if a plan file is present for this branch:
    - any `docs/superpowers/plans/*.md` in the working tree, OR
    - any `.planning/*/PLAN.md` or `SPEC.md` in the working tree, OR
+   - `.pilot/acceptance.md` (the AC ledger is a plan artifact), OR
    - any of the above modified in commits since `git merge-base HEAD <upstream>`.
-4. Otherwise block (exit 1) with a G1 message naming both plan locations.
+4. Otherwise block (exit 2 — the PreToolUse blocking convention; stderr is
+   fed back to the model) with a G1 message naming both plan locations.
 
 ## Pre-commit hook (G3/G7/G8/G12) — detailed behavior
 
@@ -63,13 +70,19 @@ into `~/.claude/settings.json` using absolute paths.
 
 1. Acts only when the command invokes `git commit` (matches with or without
    `-m`, `--amend`, etc.).
-2. Bypass check — same one-shot/session marker logic as plan-gate, plus
-   `pilot off` / `pilot off rails` transcript phrases.
+2. Bypass check — same one-shot/session marker logic as plan-gate
+   (markers only; no transcript phrases).
 3. Parses commit message from `-m "..."` / `-m '...'` / `--message="..."`.
    HEREDOC, `-F <file>`, and editor-mode commits skip G3 only.
 4. G3: block on WIP or missing conventional prefix.
-5. G7/G8/G12: scan staged files (`git diff --cached`).
-6. Exit 1 on violation; otherwise exit 0.
+5. G7/G8/G12: scan **two** file sets — already-staged files
+   (`git diff --cached`, read from the index) AND files the same command
+   line is about to stage (`git add …` segments, `git add .`/-A/-u
+   expansion, `git commit -a`), read from the working tree. The second set
+   closes the TOCTOU hole: PreToolUse runs before the command, so
+   `git add X && git commit` used to be checked against an empty index.
+6. Exit 2 on violation (blocks the call; stderr fed back to the model);
+   otherwise exit 0.
 
 ## Verify-gate hook (G14) — detailed behavior
 
@@ -78,13 +91,33 @@ into `~/.claude/settings.json` using absolute paths.
 1. Reads transcript via `transcript_path` (real Claude Code format) or
    inline `.transcript[]` (legacy fixtures).
 2. Greps last assistant messages for done/ready/passing/fixed claims.
-3. If claim present, looks for evidence: a test-runner invocation
-   (`pytest`, `bun test`, `vitest`, `nx test`, `make test`, ...) plus a
-   result token (`passed`, `PASS`, `✓`, `0 failed`, ...).
-4. Per-repo extension: `.pilot.json` `test_patterns:` list (JSON array
-   of regex strings) is unioned with the built-ins.
-5. **Warn only** — stderr message reaches the assistant as a system
-   reminder, but exit is always 0 (never blocks).
+3. Skips when no source file changed in the working tree (analysis/docs
+   turns don't trip the gate).
+4. Requires a **real captured test run**, not transcript prose: the
+   companion `capture-test-run.sh` (`PostToolUse: Bash`) records the actual
+   result of test-runner commands to `~/.cache/pilot/last-test-run`. The
+   gate clears the claim only when that fact file shows a passing run for
+   this session (session-id match, with a recency fallback when the Stop
+   payload omits a session id). A model writing "tests passed" without
+   running anything no longer clears the gate.
+5. Per-repo extension: `.pilot.json` `test_patterns:` (JSON array of regex
+   strings) extends which commands `capture-test-run.sh` treats as runners.
+6. **Blocking** — emits a `{"decision":"block"}` Stop decision by default.
+   Downgraded to warn by bypass markers (`bypass*`/`off-rails`) or per-repo
+   `.pilot.json {"verify_gate":"warn"}`, and auto-releases after 2
+   consecutive blocks so it can never trap the session.
+7. **Opt-in run mode** — `.pilot.json {"verify_gate":"run","test_command":
+   "...","test_timeout":120}` makes the gate execute the repo's test command
+   on the enforce path and use the real exit code (un-fakeable). Lazy (runs
+   only when it would otherwise block), bypass-aware (won't run when
+   bypassed), timeout-guarded, and records a pass as a capture so it runs at
+   most once per session.
+8. **AC ledger (requirement traceability)** — when `.pilot/acceptance.md`
+   exists at the repo root, any unchecked `- [ ]` item blocks a "done" claim
+   even with a passing test capture. The Plan phase writes one checkbox per
+   acceptance criterion; Verify checks them off with evidence. No ledger
+   file → no AC gating (opt-in per repo). Same bypass/warn/anti-trap rails
+   as the test-run check.
 
 ## Bypass mechanisms
 
@@ -95,8 +128,8 @@ into `~/.claude/settings.json` using absolute paths.
 | `/pilot-bypass --no-precommit` | Next pre-commit fire only | Writes `bypass-precommit-once`. Pre-commit consumes this before `bypass-once`. |
 | `/pilot-off-rails` | Until `/pilot-back-on` | Writes `bypass-session`; hooks honor without consuming. |
 | `/pilot-back-on` | Re-engage | Removes every marker. |
-| `pilot off` in user msg | Next gate fire | Transcript-grep fallback. |
-| `pilot off rails` in user msg | Until "pilot back on" | Transcript-grep with state tracking. |
+| `pilot off` in user msg | Next gate fire | The conductor invokes `/pilot-off` on the user's behalf (hooks never grep the transcript — a doc mentioning the phrase must not disarm a gate). |
+| `pilot off rails` in user msg | Until "pilot back on" | The conductor invokes `/pilot-off-rails`; `/pilot-back-on` re-engages. |
 
 Per-gate markers are preferred over the shared `bypass-once` when both
 are armed — so a `--no-precommit` doesn't accidentally swallow a
@@ -104,5 +137,7 @@ are armed — so a `--no-precommit` doesn't accidentally swallow a
 
 The marker-file path can be overridden via `XDG_CACHE_HOME`.
 
-`G14` is warn-only; bypasses don't apply there. To genuinely silence the
-verify-gate warning, run your test suite and quote the output.
+`G14` blocks by default but honors the bypass markers above (they downgrade
+it to warn) and auto-releases after 2 consecutive blocks. The intended way to
+clear it is to actually run your test suite — `capture-test-run.sh` records the
+result and the gate releases on the next stop.

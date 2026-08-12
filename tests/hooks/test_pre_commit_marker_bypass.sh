@@ -29,7 +29,7 @@ set +e
 call_hook 'git commit -m "feat: x"' >/dev/null 2>&1
 rc=$?
 set -e
-[[ "$rc" -eq 1 ]] || { echo "FAIL: baseline should block on G8 (got $rc)"; exit 1; }
+[[ "$rc" -eq 2 ]] || { echo "FAIL: baseline should block on G8 (got $rc)"; exit 1; }
 echo "PASS: baseline blocks on G8"
 
 # bypass-precommit-once → allow + consume.
@@ -45,7 +45,7 @@ set +e
 call_hook 'git commit -m "feat: x"' >/dev/null 2>&1
 rc=$?
 set -e
-[[ "$rc" -eq 1 ]] || { echo "FAIL: gate should block after consumption"; exit 1; }
+[[ "$rc" -eq 2 ]] || { echo "FAIL: gate should block after consumption"; exit 1; }
 echo "PASS: gate re-engages after per-gate marker consumed"
 
 # bypass-once → allow + consume (still works as catch-all).
