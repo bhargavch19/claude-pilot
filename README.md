@@ -22,14 +22,17 @@ workflow.
 | Plugin | What it does | Install |
 |---|---|---|
 | **pilot** | Intent router + 14 quality-gate hooks + 3 bundled MCPs. The full conductor. | `/plugin install pilot@pilot` |
+| **verify-gate** | Just the un-fakeable verification pair: capture real test exit codes, block unverified "done" claims. | `/plugin install verify-gate@pilot` |
 | **migration-safety** | Analyze schema migrations, dependency upgrades, and breaking changes before they ship. | `/plugin install migration-safety@pilot` |
 | **pre-deploy-checklist** | Pre-deploy gate: secret scan, env vars, feature-flag defaults, smoke tests, rollback path. | `/plugin install pre-deploy-checklist@pilot` |
 | **post-deploy-monitor** | Watch error rate, latency, and logs for the first 15–60 minutes after a deploy. | `/plugin install post-deploy-monitor@pilot` |
 | **ceo-review** | Adversarial plan review — poke holes, right-size scope, decide expand-or-kill. | `/plugin install ceo-review@pilot` |
 | **office-hours** | Pressure-test whether an idea is worth building before any code is written. | `/plugin install office-hours@pilot` |
 
-The lightweight plugins wire **no hooks and no MCP servers** — they add one
-skill each. Only `pilot` installs the hook suite.
+The skill plugins wire **no hooks and no MCP servers** — they add one skill
+each. `verify-gate` wires exactly three hook entries (the verification pair —
+byte-identical to pilot's copies, CI-enforced; don't install alongside full
+pilot or the gate fires twice). Only `pilot` installs the complete hook suite.
 
 `migration-safety`, `pre-deploy-checklist`, and `post-deploy-monitor` are
 structured scaffolds today: they register their phase, run a documented

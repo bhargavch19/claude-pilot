@@ -28,6 +28,11 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
   directory contains no tests.
 
 ### Added
+- **`verify-gate` standalone plugin** — pilot's un-fakeable verification pair
+  (`capture-test-run.sh` + `verify-gate.sh`) installable on its own:
+  `/plugin install verify-gate@pilot`. Three hook entries, no MCPs, no
+  routing. Copies are byte-identical to pilot's; a CI drift test
+  (`tests/skills/test_verify_gate_plugin.sh`) enforces the sync.
 - Per-plugin READMEs, root plugin catalog, and `CONTRIBUTING.md`.
 - **Marketplace picks integrated (research-driven).** Four official plugins
   wired as registry fallbacks/always-on and pinned in `skills-lock.json`:

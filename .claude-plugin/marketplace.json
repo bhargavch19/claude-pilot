@@ -10,6 +10,11 @@
       "description": "Unified AI coding conductor — auto-routes intent to the right skill (grill, plan, TDD, debug, verify, ship) and enforces CLAUDE.md quality gates via hooks."
     },
     {
+      "name": "verify-gate",
+      "source": "./plugins/verify-gate",
+      "description": "Un-fakeable verification: hooks capture real test exit codes and block \"done\" claims without a captured pass. Pilot's most useful pair of hooks, standalone."
+    },
+    {
       "name": "migration-safety",
       "source": "./plugins/migration-safety",
       "description": "Analyze schema migrations, dependency upgrades, and breaking changes for production safety."

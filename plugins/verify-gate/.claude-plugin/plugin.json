@@ -1,0 +1,44 @@
+{
+  "name": "verify-gate",
+  "version": "0.11.0",
+  "description": "Un-fakeable verification for Claude Code: a hook captures real test exit codes, and a blocking Stop gate refuses \"done\" claims on code-changing turns without a real captured pass. The standalone extraction of pilot's verify-gate + capture-test-run pair.",
+  "author": {
+    "name": "Bhargav Chelluboina"
+  },
+  "license": "MIT",
+  "keywords": ["verification", "testing", "hooks", "quality-gate", "stop-hook"],
+  "skills": "./skills/",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/capture-test-run.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/verify-gate.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/verify-gate.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
