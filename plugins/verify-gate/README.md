@@ -1,5 +1,7 @@
 # verify-gate
 
+![verify-gate blocking an unverified "done" claim, then clearing it after a real test run](../../demo/verify-gate.gif)
+
 Un-fakeable verification for Claude Code. Your agent says "done, tests
 pass" — did they? This plugin makes the claim checkable in code:
 

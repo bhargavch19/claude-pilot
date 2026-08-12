@@ -13,6 +13,13 @@ model promises.
 /plugin marketplace add bhargavch19/claude-pilot
 ```
 
+![verify-gate blocking an unverified "done" claim, then clearing it after a real test run](./demo/verify-gate.gif)
+
+*The real hooks, live: the agent claims "done, all tests pass" → the Stop
+hook **blocks** (no captured test run this session) → a real `node --test`
+run is captured with its actual exit code → the same claim clears. Regenerate
+with `vhs demo/demo.tape`.*
+
 ## Plugins
 
 Install any plugin independently — the skills work standalone. `pilot` is the
