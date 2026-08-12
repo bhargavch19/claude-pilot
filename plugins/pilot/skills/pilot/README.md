@@ -4,9 +4,9 @@ User-level Claude Code skill that routes intent → underlying skill, enforces C
 
 ## Install
 
-1. Build dir: `~/Workspace/claude-skill/pilot/` (this repo).
-2. Symlink: `ln -sfn ~/Workspace/claude-skill/pilot ~/.claude/skills/pilot`.
-3. Wire hooks: `bash ~/Workspace/claude-skill/dev/wire-hooks.sh`.
+1. Build dir: `~/Workspace/claude-pilot/plugins/pilot/skills/pilot/` (this repo).
+2. Symlink: `ln -sfn ~/Workspace/claude-pilot/plugins/pilot/skills/pilot ~/.claude/skills/pilot`.
+3. Wire hooks: `bash ~/Workspace/claude-pilot/plugins/pilot/dev/wire-hooks.sh`.
 4. Restart Claude Code.
 
 ## Files

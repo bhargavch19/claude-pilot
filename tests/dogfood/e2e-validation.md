@@ -7,7 +7,7 @@ close-loop, route-advisor mention-vs-command, hosted github MCP.
 
 ```bash
 # 1. Pick up the changed hooks + MCP config (dev install):
-cd ~/Workspace/claude-skill
+cd ~/Workspace/claude-pilot
 bash dev/wire-hooks.sh                 # re-sync hook wiring
 claude mcp remove github 2>/dev/null   # drop the old npx registration
 bash dev/wire-mcps.sh                  # registers the hosted endpoint
