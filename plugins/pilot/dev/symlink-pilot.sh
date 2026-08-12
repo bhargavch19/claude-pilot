@@ -13,17 +13,17 @@
 set -euo pipefail
 
 DEV_DIR="$(cd "$(dirname "$0")" && pwd)"
-SKILLS_SRC="$(cd "$DEV_DIR/.." && pwd)/skills"
+REPO_ROOT="$(cd "$DEV_DIR/../../.." && pwd)"
 
 echo "==> [1/3] Symlinking skill dirs..."
 
 mkdir -p "$HOME/.claude/skills"
 
-# Symlink every immediate subdirectory of skills/ — pilot's own skill plus
-# any bundled scaffolds (migration-safety, pre-deploy-checklist, etc.) the
-# marketplace install would pick up automatically via plugin.json's
+# Symlink every skill from every plugin in the marketplace — pilot's own skill
+# plus the standalone plugins (migration-safety, pre-deploy-checklist, etc.)
+# a marketplace install would pick up via each plugin.json's
 # "skills": "./skills/" declaration.
-for skill_dir in "$SKILLS_SRC"/*/; do
+for skill_dir in "$REPO_ROOT"/plugins/*/skills/*/; do
   [[ -d "$skill_dir" ]] || continue
   name=$(basename "$skill_dir")
   target="$HOME/.claude/skills/$name"

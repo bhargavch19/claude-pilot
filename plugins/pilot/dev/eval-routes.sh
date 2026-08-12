@@ -12,7 +12,9 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-GOLDEN="${1:-$ROOT/tests/eval/golden_routes.tsv}"
+# The golden set lives at the repo root (tests/), two levels above the
+# pilot plugin dir (plugins/pilot/).
+GOLDEN="${1:-$(cd "$ROOT/../.." && pwd)/tests/eval/golden_routes.tsv}"
 ADVISOR="$ROOT/hooks/route-advisor.sh"
 [ -f "$GOLDEN" ] || { echo "eval: golden set not found: $GOLDEN" >&2; exit 2; }
 [ -x "$ADVISOR" ] || { echo "eval: route-advisor not executable: $ADVISOR" >&2; exit 2; }

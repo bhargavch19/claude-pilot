@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-HOOK="$ROOT/hooks/log-skill-invocation.sh"
+HOOK="$ROOT/plugins/pilot/hooks/log-skill-invocation.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 export XDG_CACHE_HOME="$TMP/.cache"

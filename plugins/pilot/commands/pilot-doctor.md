@@ -5,11 +5,11 @@ allowed-tools: Bash
 
 Run a top-to-bottom pilot health check. Steps:
 
-1. **Prereq table** — run `bash ${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}/dev/check-prereqs.sh`.
+1. **Prereq table** — run `bash ${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-pilot/plugins/pilot}/dev/check-prereqs.sh`.
 
 2. **Hook scripts executable + present** — run:
    ```bash
-   ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}"
+   ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-pilot/plugins/pilot}"
    for h in plan-gate.sh pre-commit.sh safety-gate.sh pretooluse-heartbeat.sh verify-gate.sh autopilot-gate.sh capture-test-run.sh autoformat.sh sessionstart-banner.sh integrity-check.sh memory-surface.sh precompact-anchor.sh route-advisor.sh approval-capture.sh log-skill-invocation.sh; do
      if [[ -x "$ROOT/hooks/$h" ]]; then
        echo "✓ $h"
@@ -76,7 +76,7 @@ Run a top-to-bottom pilot health check. Steps:
    with Claude Code (marketplace install does this for you; dev installs
    need `bash dev/wire-mcps.sh`):
    ```bash
-   ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}"
+   ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-pilot/plugins/pilot}"
    unregistered=0
    jq -r '.mcpServers // {} | to_entries[] | "\(.key)\t\(.value.command)\t\((.value.args // []) | join(" "))"' \
      "$ROOT/.claude-plugin/plugin.json" \
@@ -113,7 +113,7 @@ Run a top-to-bottom pilot health check. Steps:
    "primary missing → silent fallback" surprises and "fallback ID rotted →
    dead-end route" drift:
    ```bash
-   ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}"
+   ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-pilot/plugins/pilot}"
    REG="$ROOT/skills/pilot/registry.md"
    [[ -f "$REG" ]] || { echo "(registry.md not found at $REG)"; }
 

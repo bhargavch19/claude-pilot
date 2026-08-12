@@ -6,7 +6,7 @@ pilot will fall back through the registry's `fallbacks` column — but a friend
 running pilot on a fresh box gets the best experience by installing the
 recommended set first.
 
-Run `bash dev/check-prereqs.sh` (or `/pilot-doctor` from a Claude Code session)
+Run `bash plugins/pilot/dev/check-prereqs.sh` (or `/pilot-doctor` from a Claude Code session)
 to see what's installed and what's missing.
 
 ## Tools (must be on PATH)
@@ -111,5 +111,5 @@ pilot routes through the superpowers / Pocock path instead.
 
 ## Editing the registry
 
-When you install a new skill, append a row to `skills/pilot/registry.md`. No
+When you install a new skill, append a row to `plugins/pilot/skills/pilot/registry.md`. No
 code change needed — the registry is the single source of truth.

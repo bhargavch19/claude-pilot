@@ -5,8 +5,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-HOOK="$ROOT/hooks/route-advisor.sh"
-export CLAUDE_PLUGIN_ROOT="$ROOT"
+HOOK="$ROOT/plugins/pilot/hooks/route-advisor.sh"
+export CLAUDE_PLUGIN_ROOT="$ROOT/plugins/pilot"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 export XDG_CACHE_HOME="$TMP/cache"   # isolate bypass markers

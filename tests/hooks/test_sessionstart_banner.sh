@@ -2,7 +2,7 @@
 # Test sessionstart-banner.sh — first-run hint + upgrade notification.
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/sessionstart-banner.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/sessionstart-banner.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 export XDG_CACHE_HOME="$TMP/.cache"

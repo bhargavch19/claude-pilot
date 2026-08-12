@@ -35,7 +35,7 @@ for f in "$PROJ/.claude/settings.json" "$PROJ/.claude/settings.local.json"; do
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     case "$c" in
-      *"/claude-skill/hooks/"*) continue ;;   # pilot's own — trusted
+      *"/plugins/pilot/hooks/"*) continue ;;   # pilot's own — trusted
     esac
     findings="$findings
   • $rel → $c"

@@ -10,9 +10,9 @@ write a red-green-refactor test with tdd	tdd
 map the repo with graphify	graphify
 turn this codebase into a graph using graphify	graphify
 drive the browser with playwright	playwright
-run migration-safety on this schema change	migration-safety
-walk the pre-deploy-checklist before release	pre-deploy-checklist
-start post-deploy-monitor after the deploy	post-deploy-monitor
+run migration-safety on this schema change	migration-safety:migration-safety
+walk the pre-deploy-checklist before release	pre-deploy-checklist:pre-deploy-checklist
+start post-deploy-monitor after the deploy	post-deploy-monitor:post-deploy-monitor
 use frontend-design for the landing page	frontend-design:frontend-design
 let's improve-codebase-architecture here	improve-codebase-architecture
 run gsd-debug on this failure	gsd-debug

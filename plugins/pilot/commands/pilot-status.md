@@ -59,7 +59,7 @@ The user wants a status snapshot of pilot. Print, in this order:
    `done`/`aborted` → terminal. Any other status → cycle in flight (the
    autopilot-gate keeps the session advancing it).
 
-6. **Prereqs** — run `bash ${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}/dev/check-prereqs.sh`
+6. **Prereqs** — run `bash ${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-pilot/plugins/pilot}/dev/check-prereqs.sh`
    and quote the bottom-line result.
 
 Be terse. End with one line telling the user how to bypass

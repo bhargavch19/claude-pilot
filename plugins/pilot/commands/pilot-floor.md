@@ -10,7 +10,7 @@ secret scan, dependency audit) that makes output production-grade — see
 
 1. Run the applier (idempotent — never overwrites an existing file):
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-skill}/skills/pilot/playbooks/apply-floor.sh" "$PWD"
+   bash "${CLAUDE_PLUGIN_ROOT:-$HOME/Workspace/claude-pilot/plugins/pilot}/skills/pilot/playbooks/apply-floor.sh" "$PWD"
    ```
 
 2. Report which files were **added** vs **already present** from the output,

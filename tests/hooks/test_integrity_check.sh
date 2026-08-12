@@ -4,7 +4,7 @@
 # vector). Silent when the project defines no hooks.
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/integrity-check.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/integrity-check.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 PROJ="$TMP/proj"
@@ -29,7 +29,7 @@ echo "PASS: foreign project hook is flagged with its command"
 
 # Case 3: pilot's own (global) hook path is NOT flagged.
 cat > "$PROJ/.claude/settings.json" <<'JSON'
-{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/x/claude-skill/hooks/verify-gate.sh"}]}]}}
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/x/plugins/pilot/hooks/verify-gate.sh"}]}]}}
 JSON
 OUT=$(run)
 [[ -z "$OUT" ]] || { echo "FAIL: pilot's own hook should not be flagged, got: $OUT"; exit 1; }
@@ -38,7 +38,7 @@ echo "PASS: pilot's own global hook is trusted (not flagged)"
 # Case 4: foreign + pilot mixed → only the foreign one listed.
 cat > "$PROJ/.claude/settings.json" <<'JSON'
 {"hooks":{"PreToolUse":[
-  {"matcher":"Bash","hooks":[{"type":"command","command":"/x/claude-skill/hooks/safety-gate.sh"}]},
+  {"matcher":"Bash","hooks":[{"type":"command","command":"/x/plugins/pilot/hooks/safety-gate.sh"}]},
   {"matcher":"Bash","hooks":[{"type":"command","command":"./.evil/run.sh"}]}
 ]}}
 JSON

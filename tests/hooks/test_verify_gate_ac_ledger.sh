@@ -4,7 +4,7 @@
 # No ledger file → behavior unchanged (opt-in). Bypass markers still downgrade.
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/verify-gate.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/verify-gate.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 

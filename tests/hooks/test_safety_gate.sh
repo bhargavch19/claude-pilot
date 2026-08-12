@@ -5,7 +5,7 @@
 # pilot bypass markers and a per-repo .pilot.json {"safety_gate":...} downgrade.
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/safety-gate.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/safety-gate.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 cd "$TMP"

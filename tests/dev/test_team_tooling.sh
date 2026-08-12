@@ -9,14 +9,14 @@ trap "rm -rf $TMP" EXIT
 
 # Case 1: scripts parse (bash -n) and are executable.
 for s in bootstrap-team.sh outcome-report.sh; do
-  bash -n "$ROOT/dev/$s" || { echo "FAIL: dev/$s does not parse"; exit 1; }
-  [[ -x "$ROOT/dev/$s" ]] || { echo "FAIL: dev/$s not executable"; exit 1; }
+  bash -n "$ROOT/plugins/pilot/dev/$s" || { echo "FAIL: dev/$s does not parse"; exit 1; }
+  [[ -x "$ROOT/plugins/pilot/dev/$s" ]] || { echo "FAIL: dev/$s not executable"; exit 1; }
 done
 echo "PASS: team tooling scripts parse and are executable"
 
 # Case 2: skills-lock.json is valid and every entry has name+kind, with the
 # kind-specific required fields.
-LOCK="$ROOT/dev/skills-lock.json"
+LOCK="$ROOT/plugins/pilot/dev/skills-lock.json"
 jq empty "$LOCK" || { echo "FAIL: skills-lock.json invalid"; exit 1; }
 jq -e '.skills | length > 0 and all(.name and .kind)' "$LOCK" >/dev/null \
   || { echo "FAIL: every lock entry needs name+kind"; exit 1; }
@@ -30,7 +30,7 @@ echo "PASS: skills-lock.json schema valid"
 
 # Case 3: bootstrap --check in an empty HOME reports missing without changing
 # anything, and exits nonzero (drift signal). Vendored entries stay OK.
-cp "$ROOT/dev/bootstrap-team.sh" "$TMP/"
+cp "$ROOT/plugins/pilot/dev/bootstrap-team.sh" "$TMP/"
 jq '{comment, skills: [.skills[] | select(.kind=="vendored" or .kind=="marketplace")]}' \
   "$LOCK" > "$TMP/skills-lock.json"
 set +e
@@ -51,7 +51,7 @@ for r in pass pass blocked; do
   jq -cn --argjson ts "$NOW" --arg repo "$GITREPO" --arg r "$r" --arg u "dev1" \
     '{ts:$ts, session:"s", repo:$repo, result:$r, user:$u}'
 done > "$TMP/repo/ledger.jsonl"
-REPORT=$(cd "$TMP/repo" && bash "$ROOT/dev/outcome-report.sh" ledger.jsonl)
+REPORT=$(cd "$TMP/repo" && bash "$ROOT/plugins/pilot/dev/outcome-report.sh" ledger.jsonl)
 echo "$REPORT" | jq -e 'select(.total) | .total==3 and .pass==2 and .blocked==1 and .first_pass_verified_rate==66' >/dev/null 2>&1 \
   || RATE_OK=0
 # jq -e over multi-doc output: validate first doc explicitly instead.

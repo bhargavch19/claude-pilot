@@ -6,7 +6,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
-if ! out=$(bash "$ROOT/dev/eval-routes.sh" 2>&1); then
+if ! out=$(bash "$ROOT/plugins/pilot/dev/eval-routes.sh" 2>&1); then
   echo "$out"
   echo "FAIL: routing eval did not reach 100%"
   exit 1

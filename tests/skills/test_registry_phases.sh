@@ -4,13 +4,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-REG="$ROOT/skills/pilot/registry.md"
+REG="$ROOT/plugins/pilot/skills/pilot/registry.md"
 [[ -f "$REG" ]] || { echo "FAIL: registry.md not found at $REG"; exit 1; }
 
 # phase-label  |  expected primary skill id (backticked in the row)
 checks=(
   "6.75 Documentation|gsd-docs-update"
-  "7.6 Dependencies|migration-safety"
+  "7.6 Dependencies|migration-safety:migration-safety"
   "8.25 Release|claude-mem:version-bump"
 )
 

@@ -21,7 +21,7 @@ cat > "$TMP/.claude/settings.json" <<'EOF'
 EOF
 
 # Wire.
-HOME="$TMP" bash "$ROOT/dev/wire-hooks.sh" >/dev/null
+HOME="$TMP" bash "$ROOT/plugins/pilot/dev/wire-hooks.sh" >/dev/null
 
 # Assert: pilot hooks present, non-pilot hook still present.
 if ! jq -e '.hooks.PreToolUse | map(.hooks[].command) | map(endswith("/hooks/plan-gate.sh")) | any' "$TMP/.claude/settings.json" >/dev/null; then
@@ -110,7 +110,7 @@ echo "PASS: wire installs 13 pilot hooks (incl. pretooluse-heartbeat, safety-gat
 # Wire again — must be idempotent. plan-gate is wired in TWO matchers
 # (Edit|Write|MultiEdit|NotebookEdit and Bash), so expect exactly 2 — and the
 # re-wire must not grow that.
-HOME="$TMP" bash "$ROOT/dev/wire-hooks.sh" >/dev/null
+HOME="$TMP" bash "$ROOT/plugins/pilot/dev/wire-hooks.sh" >/dev/null
 plan_count=$(jq '[.hooks.PreToolUse[].hooks[] | select(.command | endswith("/hooks/plan-gate.sh"))] | length' "$TMP/.claude/settings.json")
 if [[ "$plan_count" != "2" ]]; then
   echo "FAIL: re-wiring changed plan-gate.sh count (expected 2: Edit + Bash, got $plan_count)"
@@ -119,7 +119,7 @@ fi
 echo "PASS: wire is idempotent (plan-gate in Edit + Bash matchers)"
 
 # Unwire.
-HOME="$TMP" bash "$ROOT/dev/unwire-hooks.sh" >/dev/null
+HOME="$TMP" bash "$ROOT/plugins/pilot/dev/unwire-hooks.sh" >/dev/null
 
 # Assert: no pilot hooks, non-pilot hook still there.
 if jq -e '..|.command? | strings | endswith("/hooks/plan-gate.sh")' "$TMP/.claude/settings.json" 2>/dev/null | grep -q true; then
@@ -165,7 +165,7 @@ fi
 echo "PASS: unwire removes all pilot hooks and preserves foreign hook"
 
 # Unwire again — must be idempotent (no error).
-HOME="$TMP" bash "$ROOT/dev/unwire-hooks.sh" >/dev/null
+HOME="$TMP" bash "$ROOT/plugins/pilot/dev/unwire-hooks.sh" >/dev/null
 echo "PASS: unwire is idempotent"
 
 echo "ALL wire/unwire tests passed."
