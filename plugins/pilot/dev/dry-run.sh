@@ -14,7 +14,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP=$(mktemp -d -t pilot-dryrun-XXXXXX)
-trap "rm -rf $TMP" EXIT
+trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"
 
 export XDG_CACHE_HOME="$TMP/.cache"
@@ -82,12 +82,12 @@ assert_exit 0 "Edit ≤20 LOC allowed" bash -c "echo '$payload' | bash '$ROOT/ho
 # ---- plan-gate (Edit >20 LOC, no plan) ----
 big=$(printf 'line\n%.0s' {1..25})
 payload=$(jq -n --arg s "$big" '{tool_name:"Edit",tool_input:{file_path:"a.ts",new_string:$s}}')
-assert_exit 1 "Edit >20 LOC w/o plan blocked" bash -c "echo '$payload' | bash '$ROOT/hooks/plan-gate.sh'"
+assert_exit 2 "Edit >20 LOC w/o plan blocked" bash -c "echo '$payload' | bash '$ROOT/hooks/plan-gate.sh'"
 
 # ---- plan-gate (MultiEdit summing big) ----
 chunk=$(printf 'line\n%.0s' {1..15})
 payload=$(jq -n --arg s "$chunk" '{tool_name:"MultiEdit",tool_input:{edits:[{old_string:"a",new_string:$s},{old_string:"b",new_string:$s}]}}')
-assert_exit 1 "MultiEdit summed >20 LOC blocked" bash -c "echo '$payload' | bash '$ROOT/hooks/plan-gate.sh'"
+assert_exit 2 "MultiEdit summed >20 LOC blocked" bash -c "echo '$payload' | bash '$ROOT/hooks/plan-gate.sh'"
 
 # ---- plan-gate (MultiEdit w/ plan present) ----
 mkdir -p .planning/phase-1
@@ -102,7 +102,7 @@ rm -rf .planning
 
 # ---- plan-gate (NotebookEdit big) ----
 payload=$(jq -n --arg s "$big" '{tool_name:"NotebookEdit",tool_input:{notebook_path:"n.ipynb",cell_id:"c1",new_source:$s,edit_mode:"replace"}}')
-assert_exit 1 "NotebookEdit big new_source blocked" bash -c "echo '$payload' | bash '$ROOT/hooks/plan-gate.sh'"
+assert_exit 2 "NotebookEdit big new_source blocked" bash -c "echo '$payload' | bash '$ROOT/hooks/plan-gate.sh'"
 
 # ---- plan-gate (bypass-once consumed) ----
 touch "$XDG_CACHE_HOME/pilot/bypass-once"
@@ -131,14 +131,14 @@ git reset clean.ts >/dev/null && rm clean.ts
 echo "export const y = 1" > y.ts
 git add y.ts
 payload='{"tool_name":"Bash","tool_input":{"command":"git commit -m \"WIP: stuff\""}}'
-assert_exit 1 "WIP msg blocked (G3)" bash -c "echo '$payload' | bash '$ROOT/hooks/pre-commit.sh'"
+assert_exit 2 "WIP msg blocked (G3)" bash -c "echo '$payload' | bash '$ROOT/hooks/pre-commit.sh'"
 git reset y.ts >/dev/null && rm y.ts
 
 # ---- pre-commit (console.log staged) ----
 echo "console.log('bad')" > bad.ts
 git add bad.ts
 payload='{"tool_name":"Bash","tool_input":{"command":"git commit -m \"feat: bad\""}}'
-assert_exit 1 "console.log blocked (G8)" bash -c "echo '$payload' | bash '$ROOT/hooks/pre-commit.sh'"
+assert_exit 2 "console.log blocked (G8)" bash -c "echo '$payload' | bash '$ROOT/hooks/pre-commit.sh'"
 git reset bad.ts >/dev/null && rm bad.ts
 
 # ---- pre-commit (per-gate bypass) ----

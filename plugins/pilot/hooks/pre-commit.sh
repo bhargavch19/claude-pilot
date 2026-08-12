@@ -117,7 +117,7 @@ scan_content() { # $1 = path, $2 = content (full file text)
       ;;
   esac
   case "$f" in
-    *test*|*spec*|*.test.*|*.spec.*)
+    *test*|*spec*)
       if printf '%s' "$content" | grep -qE '(^|[^a-zA-Z_])(sleep|setTimeout)\('; then
         echo "pre-commit: G12 — sleep/setTimeout in test $f. Fix root cause, don't paper over flakes." >&2
         return 1
