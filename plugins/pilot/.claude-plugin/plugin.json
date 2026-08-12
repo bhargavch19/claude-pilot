@@ -1,21 +1,35 @@
 {
   "name": "pilot",
-  "version": "0.10.0",
-  "description": "Unified AI coding conductor — auto-routes intent to the right skill (grill, plan, TDD, debug, verify, ship), enforces CLAUDE.md quality gates, and stays extensible via registry.md.",
+  "version": "0.11.0",
+  "description": "Unified AI coding conductor \u2014 auto-routes intent to the right skill (grill, plan, TDD, debug, verify, ship), enforces CLAUDE.md quality gates, and stays extensible via registry.md.",
   "author": {
     "name": "Bhargav Chelluboina"
   },
   "license": "MIT",
-  "keywords": ["workflow", "conductor", "tdd", "guardrails", "routing", "mcp", "context7"],
+  "keywords": [
+    "workflow",
+    "conductor",
+    "tdd",
+    "guardrails",
+    "routing",
+    "mcp",
+    "context7"
+  ],
   "skills": "./skills/",
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@2.2.5"]
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@2.2.5"
+      ]
     },
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@0.0.75"]
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.75"
+      ]
     },
     "github": {
       "type": "http",

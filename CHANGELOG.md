@@ -6,7 +6,29 @@ follows [Keep a Changelog](https://keepachangelog.com/); versions follow
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-12
+
+### Changed
+- **BREAKING: multi-plugin marketplace restructure.** The repo (renamed
+  `bhargavch19/claude-pilot`) now publishes six independently installable
+  plugins under `plugins/`: `pilot` (flagship — hooks + MCPs + routing skill,
+  moved to `plugins/pilot/` with its `hooks/`, `commands/`, `dev/`, and
+  `templates/` intact) plus standalone `migration-safety`,
+  `pre-deploy-checklist`, `post-deploy-monitor`, `ceo-review`, and
+  `office-hours` (one skill each, no hooks, no MCP servers). Install strings
+  are `/plugin install <name>@pilot` after
+  `/plugin marketplace add bhargavch19/claude-pilot`.
+- Registry routes to the bundled skills by plugin-qualified name
+  (`migration-safety:migration-safety`, …) — their name when installed from
+  the marketplace.
+- `integrity-check.sh` trusts pilot's own hooks by the repo-name-agnostic
+  `*/plugins/pilot/hooks/*` path.
+- CI validates every `plugins/*/.claude-plugin/plugin.json` and requires
+  hooks/mcpServers only for pilot; `tests/run.sh` hard-fails when a suite
+  directory contains no tests.
+
 ### Added
+- Per-plugin READMEs, root plugin catalog, and `CONTRIBUTING.md`.
 - **Marketplace picks integrated (research-driven).** Four official plugins
   wired as registry fallbacks/always-on and pinned in `skills-lock.json`:
   `typescript-lsp` (symbol-level intelligence — always-on note for
