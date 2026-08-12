@@ -1,0 +1,11 @@
+{
+  "name": "office-hours",
+  "version": "0.11.0",
+  "description": "Brainstorm and pressure-test whether an idea is worth building before any code is written. Vendored from garrytan/gstack (MIT).",
+  "author": {
+    "name": "Bhargav Chelluboina"
+  },
+  "license": "MIT",
+  "keywords": ["brainstorming", "ideation", "product", "planning"],
+  "skills": "./skills/"
+}

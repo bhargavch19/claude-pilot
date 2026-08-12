@@ -1,13 +1,38 @@
 {
   "name": "pilot",
   "owner": {
-    "name": "Bhargav Chellu"
+    "name": "Bhargav Chelluboina"
   },
   "plugins": [
     {
       "name": "pilot",
-      "source": ".",
-      "description": "Unified AI coding conductor — auto-routes intent to the right skill, enforces CLAUDE.md quality gates."
+      "source": "./plugins/pilot",
+      "description": "Unified AI coding conductor — auto-routes intent to the right skill (grill, plan, TDD, debug, verify, ship) and enforces CLAUDE.md quality gates via hooks."
+    },
+    {
+      "name": "migration-safety",
+      "source": "./plugins/migration-safety",
+      "description": "Analyze schema migrations, dependency upgrades, and breaking changes for production safety."
+    },
+    {
+      "name": "pre-deploy-checklist",
+      "source": "./plugins/pre-deploy-checklist",
+      "description": "Structured pre-deploy gate: secret scan, env vars, feature flags, smoke tests, rollback path."
+    },
+    {
+      "name": "post-deploy-monitor",
+      "source": "./plugins/post-deploy-monitor",
+      "description": "Watch error rate, latency, and logs right after a production deploy."
+    },
+    {
+      "name": "ceo-review",
+      "source": "./plugins/ceo-review",
+      "description": "Adversarial plan review — poke holes in an approach and right-size its scope."
+    },
+    {
+      "name": "office-hours",
+      "source": "./plugins/office-hours",
+      "description": "Brainstorm and pressure-test whether an idea is worth building before writing code."
     }
   ]
 }

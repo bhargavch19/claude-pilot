@@ -1,0 +1,11 @@
+{
+  "name": "ceo-review",
+  "version": "0.11.0",
+  "description": "Adversarial plan review: challenge a proposal, poke holes in an approach, and decide whether to expand or cut scope. Vendored from garrytan/gstack (MIT).",
+  "author": {
+    "name": "Bhargav Chelluboina"
+  },
+  "license": "MIT",
+  "keywords": ["review", "planning", "scope", "critique"],
+  "skills": "./skills/"
+}
