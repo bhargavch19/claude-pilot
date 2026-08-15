@@ -5,12 +5,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-VG="$ROOT/hooks/verify-gate.sh"
-ADV="$ROOT/hooks/route-advisor.sh"
+VG="$ROOT/plugins/pilot/hooks/verify-gate.sh"
+ADV="$ROOT/plugins/pilot/hooks/route-advisor.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 export XDG_CACHE_HOME="$TMP/cache"; mkdir -p "$XDG_CACHE_HOME/pilot"
-export CLAUDE_PLUGIN_ROOT="$ROOT"
+export CLAUDE_PLUGIN_ROOT="$ROOT/plugins/pilot"
 LEDGER="$XDG_CACHE_HOME/pilot/outcomes.jsonl"
 
 REPO="$TMP/repo"; mkdir -p "$REPO"

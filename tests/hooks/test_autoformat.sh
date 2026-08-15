@@ -4,7 +4,7 @@
 # formatters on PATH so the test needs no real toolchain.
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/autoformat.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/autoformat.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 cd "$TMP"

@@ -5,8 +5,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-SCRIPT="$ROOT/skills/pilot/playbooks/apply-floor.sh"
-TPL="$ROOT/skills/pilot/playbooks/templates"
+SCRIPT="$ROOT/plugins/pilot/skills/pilot/playbooks/apply-floor.sh"
+TPL="$ROOT/plugins/pilot/skills/pilot/playbooks/templates"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 

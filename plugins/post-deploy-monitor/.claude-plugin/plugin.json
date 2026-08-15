@@ -1,0 +1,11 @@
+{
+  "name": "post-deploy-monitor",
+  "version": "0.11.0",
+  "description": "Watch error rate, latency, and logs for the first 15-60 minutes after a production deploy — catch regressions before they become incidents.",
+  "author": {
+    "name": "Bhargav Chelluboina"
+  },
+  "license": "MIT",
+  "keywords": ["deploy", "monitoring", "observability", "rollback", "incidents"],
+  "skills": "./skills/"
+}

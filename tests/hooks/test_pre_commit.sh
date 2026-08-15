@@ -3,7 +3,7 @@
 # Feeds JSON over stdin; asserts allow (exit 0) vs block (exit 1).
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/pre-commit.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/pre-commit.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 cd "$TMP"

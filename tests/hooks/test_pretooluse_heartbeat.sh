@@ -3,7 +3,7 @@
 # can detect a silently-dead PreToolUse chain (Claude Code issue #31250).
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/pretooluse-heartbeat.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/pretooluse-heartbeat.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 export XDG_CACHE_HOME="$TMP/cache"

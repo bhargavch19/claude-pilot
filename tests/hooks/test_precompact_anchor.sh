@@ -3,7 +3,7 @@
 # version, bypass state, and recent routing log when present.
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/precompact-anchor.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/precompact-anchor.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 export XDG_CACHE_HOME="$TMP/.cache"

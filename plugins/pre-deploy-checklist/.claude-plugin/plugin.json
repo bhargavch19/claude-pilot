@@ -1,0 +1,11 @@
+{
+  "name": "pre-deploy-checklist",
+  "version": "0.11.0",
+  "description": "Structured pre-deploy gate: secret scan, env-var completeness, feature-flag defaults, smoke test plan, rollback path.",
+  "author": {
+    "name": "Bhargav Chelluboina"
+  },
+  "license": "MIT",
+  "keywords": ["deploy", "release", "checklist", "production", "rollback"],
+  "skills": "./skills/"
+}

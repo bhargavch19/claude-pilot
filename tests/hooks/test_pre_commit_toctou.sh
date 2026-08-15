@@ -6,7 +6,7 @@
 # line, git commit -a) from the working tree.
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/pre-commit.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/pre-commit.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 
@@ -15,7 +15,10 @@ mkdir -p "$XDG_CACHE_HOME/pilot"
 
 REPO="$TMP/repo"
 mkdir -p "$REPO"
-( cd "$REPO" && git init -q )
+# CI runners have no global git identity; the fixture repo needs its own or
+# the real `git commit` in case 4 dies with "Author identity unknown".
+( cd "$REPO" && git init -q \
+  && git config user.email test@example.com && git config user.name "Test" )
 
 run_hook() { # $1 = command string; runs from the repo; returns hook rc
   local rc=0

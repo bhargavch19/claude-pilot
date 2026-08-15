@@ -5,7 +5,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-HOOK="$ROOT/hooks/verify-gate.sh"
+HOOK="$ROOT/plugins/pilot/hooks/verify-gate.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 export XDG_CACHE_HOME="$TMP/cache"

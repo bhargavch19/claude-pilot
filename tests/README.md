@@ -13,8 +13,8 @@ touch your real settings or bypass markers.
 - `tests/hooks/` — one script per hook surface (plan-gate, pre-commit,
   verify-gate, sessionstart-banner, precompact-anchor, log-skill-invocation,
   malformed-json).
-- `tests/dev/` — integration tests for `dev/wire-hooks.sh` and
-  `dev/wire-mcps.sh` (wire-mcps uses a mock `claude` CLI shim).
+- `tests/dev/` — integration tests for `plugins/pilot/dev/wire-hooks.sh` and
+  `plugins/pilot/dev/wire-mcps.sh` (wire-mcps uses a mock `claude` CLI shim).
 - `tests/dogfood/sample_prompts.md` — manual routing prompts to paste
   into a live Claude Code session.
 

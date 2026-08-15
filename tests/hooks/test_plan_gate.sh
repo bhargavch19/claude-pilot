@@ -2,7 +2,7 @@
 # Test plan-gate.sh: blocks edits >20 LOC unless plan exists in last 24h.
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/plan-gate.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/plan-gate.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 

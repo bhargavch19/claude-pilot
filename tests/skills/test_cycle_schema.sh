@@ -6,7 +6,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-SPEC="$ROOT/skills/pilot/autopilot.md"
+SPEC="$ROOT/plugins/pilot/skills/pilot/autopilot.md"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 cd "$TMP"
@@ -70,7 +70,7 @@ jq '.checkpoints.plan_approved=true | .checkpoints.plan_approved_at="2026-07-20T
 echo "PASS: driver transition idioms produce valid state"
 
 # Case 5: allow-states named in the hook match the spec's allow-state list.
-HOOK="$ROOT/hooks/autopilot-gate.sh"
+HOOK="$ROOT/plugins/pilot/hooks/autopilot-gate.sh"
 for st in awaiting_plan_approval awaiting_ship_approval halted done aborted; do
   grep -q "$st" "$HOOK" || { echo "FAIL: allow-state '$st' missing from autopilot-gate.sh"; exit 1; }
 done

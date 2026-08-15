@@ -35,7 +35,7 @@ jobs:
         run: bash tests/run.sh
 
       - name: End-to-end dry-run
-        run: bash dev/dry-run.sh
+        run: bash plugins/pilot/dev/dry-run.sh
 
   shellcheck:
     name: shellcheck (hooks + dev)
@@ -46,13 +46,13 @@ jobs:
       - name: shellcheck hooks/
         uses: ludeeus/action-shellcheck@2.0.0
         with:
-          scandir: 'hooks'
+          scandir: 'plugins/pilot/hooks'
           severity: warning
 
       - name: shellcheck dev/
         uses: ludeeus/action-shellcheck@2.0.0
         with:
-          scandir: 'dev'
+          scandir: 'plugins/pilot/dev'
           severity: warning
 
   floor:
@@ -67,7 +67,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y jq
 
       - name: Run the executable floor (tests + secret scan + lint)
-        run: bash dev/floor-check.sh
+        run: bash plugins/pilot/dev/floor-check.sh
 
   plugin-manifest:
     name: validate plugin.json + marketplace.json
@@ -78,21 +78,30 @@ jobs:
       - name: Install jq
         run: sudo apt-get update -qq && sudo apt-get install -y jq
 
-      - name: plugin.json is valid JSON
-        run: jq empty .claude-plugin/plugin.json
-
-      - name: marketplace.json is valid JSON
-        run: jq empty .claude-plugin/marketplace.json
-
-      - name: required fields present
+      - name: all plugin manifests are valid JSON with required fields
         run: |
-          jq -e '.name and .version and .description and .license and .hooks' \
-            .claude-plugin/plugin.json
+          for f in plugins/*/.claude-plugin/plugin.json; do
+            jq empty "$f"
+            jq -e '.name and .version and .description and .license and .skills' "$f" \
+              || { echo "missing required field in $f"; exit 1; }
+          done
+
+      - name: marketplace.json is valid, lists every plugin dir
+        run: |
+          jq empty .claude-plugin/marketplace.json
           jq -e '.name and .owner and (.plugins | length > 0)' \
             .claude-plugin/marketplace.json
+          for d in plugins/*/; do
+            name=$(basename "$d")
+            jq -e --arg n "$name" '.plugins | any(.name == $n)' \
+              .claude-plugin/marketplace.json >/dev/null \
+              || { echo "plugins/$name missing from marketplace.json"; exit 1; }
+          done
 
-      - name: mcpServers entries well-formed
+      - name: pilot plugin wires hooks + well-formed mcpServers
         run: |
+          PILOT=plugins/pilot/.claude-plugin/plugin.json
+          jq -e '.hooks' "$PILOT"
           # Every entry is either a local command server (.command string) or
           # a hosted server (.type=="http" with a .url string).
           jq -e '
@@ -102,7 +111,7 @@ jobs:
                 (.value.command and (.value.command | type == "string"))
                 or (.value.type == "http" and (.value.url | type == "string"))
               )
-          ' .claude-plugin/plugin.json
+          ' "$PILOT"
           # If any entry uses args, all elements must be strings.
           jq -e '
             (.mcpServers // {})
@@ -110,10 +119,10 @@ jobs:
             | all(
                 (.value.args // []) | type == "array" and all(. | type == "string")
               )
-          ' .claude-plugin/plugin.json
+          ' "$PILOT"
 
   vendored-board:
-    name: vendored story board (templates/board)
+    name: vendored story board (plugins/pilot/templates/board)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -124,13 +133,13 @@ jobs:
 
       # templates/board is a COPY of appbuild-structure/factory-board, scaffolded
       # into new repos by Bootstrap step 6. Nothing detects the original moving
-      # ahead — see templates/board/VENDORED.md. This job proves only that the
-      # copy passes its own suite, which is the difference between shipping code
-      # we have run and code we have merely pasted.
+      # ahead — see plugins/pilot/templates/board/VENDORED.md. This job proves
+      # only that the copy passes its own suite, which is the difference between
+      # shipping code we have run and code we have merely pasted.
       - name: Install board dependencies
-        working-directory: templates/board
+        working-directory: plugins/pilot/templates/board
         run: npm ci
 
       - name: Run the board suite
-        working-directory: templates/board
+        working-directory: plugins/pilot/templates/board
         run: npm test

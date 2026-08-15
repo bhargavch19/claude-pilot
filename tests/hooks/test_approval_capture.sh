@@ -5,7 +5,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-HOOK="$ROOT/hooks/approval-capture.sh"
+HOOK="$ROOT/plugins/pilot/hooks/approval-capture.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 cd "$TMP"

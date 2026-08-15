@@ -12,7 +12,7 @@ export XDG_CACHE_HOME="$TMP/.cache"
 assert_declines() {
   local hook="$1" payload="$2"
   set +e
-  err=$(printf '%s' "$payload" | "$ROOT/hooks/$hook" 2>&1 >/dev/null)
+  err=$(printf '%s' "$payload" | "$ROOT/plugins/pilot/hooks/$hook" 2>&1 >/dev/null)
   rc=$?
   set -e
   [[ "$rc" -eq 0 ]] || { echo "FAIL: $hook should exit 0 on bad JSON, got $rc"; exit 1; }

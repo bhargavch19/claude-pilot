@@ -1,0 +1,11 @@
+{
+  "name": "migration-safety",
+  "version": "0.11.0",
+  "description": "Analyze schema migrations, dependency upgrades, and breaking changes for production safety before they ship.",
+  "author": {
+    "name": "Bhargav Chelluboina"
+  },
+  "license": "MIT",
+  "keywords": ["migrations", "database", "dependencies", "breaking-changes", "safety"],
+  "skills": "./skills/"
+}

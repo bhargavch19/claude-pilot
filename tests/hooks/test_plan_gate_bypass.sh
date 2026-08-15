@@ -6,7 +6,7 @@
 # literally contains "pilot off rails"; that must not disarm the gate).
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/plan-gate.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/plan-gate.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 cd "$TMP"  # isolate from the repo's own plan files / git history

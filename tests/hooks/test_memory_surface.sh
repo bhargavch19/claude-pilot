@@ -3,7 +3,7 @@
 # project memory survives across sessions. Silent when absent; capped digest.
 set -euo pipefail
 
-HOOK="$(cd "$(dirname "$0")/../.." && pwd)/hooks/memory-surface.sh"
+HOOK="$(cd "$(dirname "$0")/../.." && pwd)/plugins/pilot/hooks/memory-surface.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 PROJ="$TMP/proj"; mkdir -p "$PROJ/.pilot"

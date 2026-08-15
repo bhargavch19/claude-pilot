@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-SCRIPT="$ROOT/dev/floor-check.sh"
+SCRIPT="$ROOT/plugins/pilot/dev/floor-check.sh"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 

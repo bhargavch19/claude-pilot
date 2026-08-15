@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 scaffolds=(migration-safety pre-deploy-checklist post-deploy-monitor)
 
 for name in "${scaffolds[@]}"; do
-  file="$ROOT/skills/$name/SKILL.md"
+  file="$ROOT/plugins/$name/skills/$name/SKILL.md"
 
   # 1. File exists.
   [[ -f "$file" ]] || { echo "FAIL: $name — SKILL.md missing"; exit 1; }
@@ -44,12 +44,13 @@ for name in "${scaffolds[@]}"; do
   echo "PASS: $name scaffold contract"
 done
 
-# Pilot's registry must reference each scaffold as a Primary skill.
-REG="$ROOT/skills/pilot/registry.md"
+# Pilot's registry must reference each scaffold as a Primary skill, using the
+# plugin-qualified name it has when installed from the marketplace.
+REG="$ROOT/plugins/pilot/skills/pilot/registry.md"
 for name in "${scaffolds[@]}"; do
-  grep -q "\`$name\`" "$REG" \
-    || { echo "FAIL: registry.md doesn't reference $name as Primary"; exit 1; }
-  echo "PASS: registry.md routes to $name"
+  grep -q "\`$name:$name\`" "$REG" \
+    || { echo "FAIL: registry.md doesn't reference $name:$name as Primary"; exit 1; }
+  echo "PASS: registry.md routes to $name:$name"
 done
 
 echo "ALL scaffold-redirect contract tests passed."
