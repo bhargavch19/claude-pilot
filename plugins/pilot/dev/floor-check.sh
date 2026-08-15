@@ -33,8 +33,10 @@ shfiles=$(ls hooks/*.sh dev/*.sh 2>/dev/null || true)
 if [ -z "$shfiles" ]; then
   echo "  - shellcheck (no shell scripts)"
 elif command -v shellcheck >/dev/null 2>&1; then
+  # Same severity as the dedicated CI shellcheck job: warnings block the
+  # floor, style/info notes don't.
   # shellcheck disable=SC2086  # intentional word-split of the file list
-  if shellcheck $shfiles >/dev/null 2>&1; then echo "  ✓ shellcheck"
+  if shellcheck -S warning $shfiles >/dev/null 2>&1; then echo "  ✓ shellcheck"
   else echo "  ✗ shellcheck"; fails=$((fails + 1)); fi
 else
   echo "  - shellcheck (not installed; CI runs it)"
